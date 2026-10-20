@@ -71,9 +71,15 @@ export function hotkeyFromEvent(e: KeyboardEvent, os: OS): string | null {
   const map: Record<string, string> = {
     " ": "Space", Escape: "Esc", ArrowLeft: "Left", ArrowRight: "Right", ArrowUp: "Up", ArrowDown: "Down",
   };
+  // physical key codes, so Shift+= is recorded as "Shift+=" and not "+"
+  const codes: Record<string, string> = {
+    Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]", Backslash: "\\", Semicolon: ";",
+    Quote: "'", Backquote: "`", Comma: ",", Period: ".", Slash: "/",
+  };
   let key = map[e.key] ?? (e.key.length === 1 ? e.key.toUpperCase() : e.key);
   if (e.code.startsWith("Key")) key = e.code.slice(3);
   if (e.code.startsWith("Digit")) key = e.code.slice(5);
+  if (e.code in codes) key = codes[e.code];
   if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) return null;
   if (!(key in USAGE)) return null;
   const mods: string[] = [];
