@@ -1,20 +1,25 @@
 # Kivo Deck PC 앱
 
-지금은 **기기 자동 연결 + 이벤트 모니터** 화면까지 있어요. 실행: `npm install` 한 번, 그다음 `npm run tauri dev`.
+Kivo Deck 설정 앱이에요. 키·노브·페이더에 기능을 끌어다 놓고 "보드에 적용"을 누르면 보드에 저장돼요.
 
-## 기술
-- **Tauri 2** (Rust 백엔드 + 웹 프런트엔드). Windows 먼저, Mac은 같은 코드로 나중에
-- 프런트엔드: TypeScript + 가벼운 UI(바닐라 또는 React 중 편한 쪽)
-- 시리얼: Rust `serialport` 크레이트. 포트 목록에서 `hello` 응답이 오는 장치를 자동으로 찾기
-- 키 입력·프로그램 실행: Rust `enigo` 등. 시스템 볼륨: Windows Core Audio(`windows` 크레이트), 앱별 볼륨은 `IAudioSessionManager2`
-- OBS: obs-websocket v5 (OBS 28 이상 내장)
+- 실행(개발): `npm install` 한 번, 그다음 `npm run tauri dev`
+- 브라우저 미리보기: `npm run dev` 후 http://localhost:1420 (기기·Rust 없이 화면만)
+- 설치 파일: GitHub에 `v*` 태그를 올리면 Actions가 만들어요 (`.github/workflows/release.yml`)
 
-## 구조
-- `src-tauri/src/device.rs` — USB 시리얼 포트 찾기·연결 유지·JSON 줄 주고받기
-- `src-tauri/src/lib.rs` — Tauri 시작, `send_command` 명령
-- `src/main.ts`, `index.html`, `src/styles.css` — 모니터 화면
+## 화면
+- 왼쪽: 로그 (접혀 있음)
+- 가운데: OS별 프리셋 3칸 → 페이지 → 보드 미리보기(키 15·노브 2·페이더 2) → 선택한 것의 설정
+- 오른쪽: 기능 목록 (화면 표시, 페이지, 키보드, 미디어, 열기, 시간, 매크로, 앱 → 프로그램별 기능)
 
-## 화면 구성 (초안)
-- 트레이 아이콘: 연결 상태, 설정 열기, 종료
-- 설정 창: 5×3 키 격자를 눌러 키마다 동작 지정, 노브 2개·페이더 2개 동작 지정, 페이지 추가
-- 동작 종류: 단축키, 프로그램/웹 열기, 볼륨(시스템/앱별), 미디어 키, OBS 장면·녹화·방송, 페이지 이동
+## 코드
+| 파일 | 하는 일 |
+|---|---|
+| `src/model.ts` | 데이터 구조, 다른 OS 프리셋 빌려 쓰기 |
+| `src/catalog.ts` | 기능 목록 전체, 프로그램별 기능 팩 (새 프로그램은 여기에 추가) |
+| `src/keys.ts` | 단축키 문자열 ↔ HID 코드 |
+| `src/render.ts` | 페이지 그리기 (앱 미리보기 = 보드 화면) |
+| `src/bundle.ts` | 보드로 보낼 번들 + 앱이 실행할 동작 표 |
+| `src/media.ts` | 이미지·GIF 불러오기, 영상 → GIF |
+| `src/sync.ts` · `src/live.ts` | 보드에 적용, 실시간 키 |
+| `src/components/` | 화면 |
+| `src-tauri/src/` | 기기 연결·동작 실행·볼륨·OBS·저장 |

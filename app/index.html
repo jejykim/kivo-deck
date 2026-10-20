@@ -2,38 +2,12 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <link rel="stylesheet" href="/src/styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kivo Deck</title>
-    <script type="module" src="/src/main.ts" defer></script>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <script type="module" src="/src/main.tsx"></script>
   </head>
   <body>
-    <header>
-      <h1>Kivo Deck</h1>
-      <span id="status" class="status off">기기를 찾는 중…</span>
-    </header>
-
-    <main>
-      <section class="deck">
-        <div id="keys" class="keys"></div>
-        <div class="controls">
-          <div class="knob"><span class="label">노브 1</span><span id="knob0" class="num">0</span></div>
-          <div class="knob"><span class="label">노브 2</span><span id="knob1" class="num">0</span></div>
-          <div class="fader"><span class="label">페이더 1</span><div class="track"><div id="fader0" class="fill"></div></div><span id="fader0v" class="num">-</span></div>
-          <div class="fader"><span class="label">페이더 2</span><div class="track"><div id="fader1" class="fill"></div></div><span id="fader1v" class="num">-</span></div>
-        </div>
-      </section>
-
-      <section class="tools">
-        <div class="buttons">
-          <button data-cmd='{"cmd":"hello"}'>hello</button>
-          <button data-cmd='{"cmd":"ping"}'>ping</button>
-          <button data-cmd='{"cmd":"state"}'>state</button>
-          <button data-cmd='{"cmd":"calibrate"}'>터치 보정</button>
-          <button id="clear">로그 지우기</button>
-        </div>
-        <pre id="log"></pre>
-      </section>
-    </main>
+    <div id="root"></div>
   </body>
 </html>
