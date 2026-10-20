@@ -1,0 +1,12 @@
+# PlatformIO
+firmware/.pio/
+firmware/.vscode/
+# Tauri / Node
+app/node_modules/
+app/dist/
+app/src-tauri/target/
+# misc
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
