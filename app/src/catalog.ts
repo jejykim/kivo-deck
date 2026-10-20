@@ -11,7 +11,7 @@ export type Slot = "key" | "dial" | "fader";
 export interface ParamDef {
   key: string;
   label: string;
-  kind: "text" | "hotkey" | "number" | "page" | "macro" | "file" | "url" | "process" | "media";
+  kind: "text" | "hotkey" | "number" | "page" | "macro" | "file" | "app" | "url" | "process" | "media";
   placeholder?: string;
 }
 
@@ -159,20 +159,20 @@ export const ACTIONS: ActionDef[] = [
   { id: "volume.mic", name: "마이크 볼륨", icon: "🎙", category: "미디어", slots: ["fader"], run: () => ({ op: "volume", target: "mic" }) },
   {
     id: "volume.app", name: "앱별 볼륨", icon: "🎛", category: "미디어", slots: ["fader"],
-    params: [{ key: "process", label: "프로그램 (예: chrome.exe)", kind: "process" }],
+    params: [{ key: "process", label: "프로그램", kind: "process", placeholder: "프로그램 이름 (예: chrome.exe)" }],
     os: () => ["windows"], // macOS has no per-app volume API
     run: (p) => ({ op: "volume", target: "app", process: p.process ?? "" }),
     label: (p) => p.process ?? "",
   },
   {
     id: "dial.appVolume", name: "앱별 볼륨 (노브)", icon: "🎛", category: "미디어", slots: ["dial"],
-    params: [{ key: "process", label: "프로그램 (예: chrome.exe)", kind: "process" }],
+    params: [{ key: "process", label: "프로그램", kind: "process", placeholder: "프로그램 이름 (예: chrome.exe)" }],
     os: () => ["windows"],
     dial: { cw: ref("volume.appStep", { step: 2 }), ccw: ref("volume.appStep", { step: -2 }) },
   },
   {
     id: "volume.appStep", name: "앱 볼륨 한 칸", icon: "🎛", category: "숨김", slots: [],
-    params: [{ key: "process", label: "프로그램", kind: "process" }],
+    params: [{ key: "process", label: "프로그램", kind: "process", placeholder: "프로그램 이름 (예: chrome.exe)" }],
     os: () => ["windows"],
     run: (p) => ({ op: "volume", target: "app", process: p.process ?? "", step: p.step ?? 2 }),
   },
@@ -184,22 +184,22 @@ export const ACTIONS: ActionDef[] = [
 
   // ---------------------------------------------------------------- 열기
   {
-    id: "open.app", name: "프로그램 실행", icon: "🚀", category: "열기", slots: ["key"],
-    params: [{ key: "target", label: "프로그램 경로", kind: "file", placeholder: "C:\\...\\app.exe 또는 /Applications/App.app" }],
+    id: "open.app", name: "앱 실행", icon: "🚀", category: "열기", slots: ["key"],
+    params: [{ key: "target", label: "앱", kind: "app", placeholder: "프로그램 위치 (예: C:\\Program Files\\앱\\app.exe)" }],
     os: (p) => pathOS(p.target),
     run: (p) => (p.target ? { op: "open", target: p.target } : null),
     label: (p) => baseName(p.target),
   },
   {
     id: "open.file", name: "파일 · 폴더 열기", icon: "📂", category: "열기", slots: ["key"],
-    params: [{ key: "target", label: "경로", kind: "file" }],
+    params: [{ key: "target", label: "파일·폴더", kind: "file", placeholder: "파일·폴더 위치 (예: C:\\Users\\나\\Documents)" }],
     os: (p) => pathOS(p.target),
     run: (p) => (p.target ? { op: "open", target: p.target } : null),
     label: (p) => baseName(p.target),
   },
   {
     id: "open.url", name: "웹사이트 열기", icon: "🌐", category: "열기", slots: ["key"],
-    params: [{ key: "target", label: "주소", kind: "url", placeholder: "https://" }],
+    params: [{ key: "target", label: "주소", kind: "url", placeholder: "웹 주소 (예: https://youtube.com)" }],
     run: (p) => (p.target ? { op: "open", target: p.target } : null),
   },
 

@@ -1,5 +1,7 @@
 mod actions;
+mod apps;
 mod audio;
+mod gpu;
 mod device;
 mod obs;
 mod runtime;
@@ -100,6 +102,8 @@ pub fn run() {
             store::read_text_file,
             system::system_stats,
             system::foreground_app,
+            apps::installed_apps,
+            apps::audio_apps,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

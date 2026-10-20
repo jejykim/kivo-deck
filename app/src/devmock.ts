@@ -12,7 +12,20 @@ export function installDevMock() {
       case "save_store": store = args.json; return null;
       case "save_media": files.set(args.name, args.b64); return null;
       case "load_media": return files.get(args.name) ?? "";
-      case "system_stats": return { cpu: 12 + Math.random() * 30, mem: 48 };
+      case "system_stats": return {
+        cpu: 12 + Math.random() * 30, mem: 48,
+        gpus: [
+          { id: "luid_a", name: "NVIDIA GeForce RTX 5090", usage: 40 + Math.random() * 40 },
+          { id: "luid_b", name: "Intel(R) UHD Graphics 770", usage: Math.random() * 5 },
+        ],
+      };
+      case "installed_apps": return [
+        { name: "Adobe Photoshop 2026", path: "C:\\ProgramData\\...\\Adobe Photoshop 2026.lnk", exe: "Photoshop.exe" },
+        { name: "Discord", path: "C:\\Users\\...\\Discord.lnk", exe: "Discord.exe" },
+        { name: "Google Chrome", path: "C:\\ProgramData\\...\\Google Chrome.lnk", exe: "chrome.exe" },
+        { name: "OBS Studio", path: "C:\\ProgramData\\...\\OBS Studio.lnk", exe: "obs64.exe" },
+      ];
+      case "audio_apps": return ["Discord.exe", "chrome.exe"];
       case "plugin:autostart|is_enabled": return true;
       case "plugin:updater|check": return null;
       case "plugin:app|version": return "0.1.0-dev";

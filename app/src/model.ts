@@ -26,7 +26,10 @@ export interface Title {
   color: string;
 }
 
-export type LiveKind = "clock" | "date" | "cpu" | "mem" | "timer";
+export type LiveKind = "clock" | "date" | "cpu" | "mem" | "gpu" | "timer";
+// how usage values (cpu / mem / gpu) are drawn
+export type LiveStyle = "number" | "ring" | "gauge" | "bar" | "graph";
+export const METRICS: LiveKind[] = ["cpu", "mem", "gpu"];
 
 export interface KeyVisual {
   kind: "none" | "text" | "image" | "live";
@@ -35,6 +38,8 @@ export interface KeyVisual {
   bg?: string;
   mediaId?: string; // image or GIF in the media folder
   live?: LiveKind;
+  liveStyle?: LiveStyle;
+  gpuId?: string; // which graphics card; empty = the busiest one
   title?: Title;
 }
 

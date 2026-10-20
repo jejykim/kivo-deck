@@ -104,7 +104,7 @@ export function DeckView({ preset, page, pageIdx }: { preset: Preset; page: Page
 
   return (
     <div className="deck">
-      <div className="screen-wrap">
+      <div className="device-body">
         <div className="screen">
           <canvas ref={canvasRef} width={SCREEN_W} height={SCREEN_H} />
           {Array.from({ length: KEY_COUNT }, (_, k) => {
@@ -141,12 +141,12 @@ export function DeckView({ preset, page, pageIdx }: { preset: Preset; page: Page
             );
           })}
         </div>
-        <div className="screen-caption muted small">
-          {COLS}×{ROWS} 키 · 드래그해서 여러 칸 선택 · 이미지·GIF·영상 파일을 키에 바로 끌어다 놓아도 돼요
-          {previewOS !== preset.os && <b className="warn-text"> · 이 PC({previewOS === "windows" ? "Windows" : "Mac"}) 기준으로 표시 중</b>}
-        </div>
+        <Controls preset={preset} />
       </div>
-      <Controls preset={preset} />
+      <div className="screen-caption muted small">
+        {COLS}×{ROWS} 키 · 드래그해서 여러 칸 선택 · 이미지·GIF·영상 파일을 키에 바로 끌어다 놓아도 돼요
+        {previewOS !== preset.os && <b className="warn-text"> · 이 PC({previewOS === "windows" ? "Windows" : "Mac"}) 기준으로 표시 중</b>}
+      </div>
     </div>
   );
 }
@@ -187,8 +187,10 @@ function Controls({ preset }: { preset: Preset }) {
     onDrop: (e: React.DragEvent) => { e.preventDefault(); setOver(null); onDrop(e); },
   });
 
+  // laid out like the device: 15 keys | knobs (back above front) | faders
   return (
-    <div className="controls">
+    <>
+    <div className="knobs">
       {preset.knobs.map((kn, i) => {
         const z = zone(`k${i}`, canDrop(drag, "knobKey"), (e) => {
           const item = readDrop(e);
@@ -199,17 +201,17 @@ function Controls({ preset }: { preset: Preset }) {
         const sel = selection?.kind === "knob" && selection.id === i;
         return (
           <div key={`k${i}`} {...z} className={`ctl knob ${sel ? "sel" : ""} ${z.className}`}
-            onClick={() => useApp.setState({ selection: { kind: "knob", id: i } })}>
+            onClick={() => useApp.setState({ selection: { kind: "knob", id: i } })}
+            title={`노브 ${i + 1}: 누르면 자세히 설정`}>
             <div className="knob-face">{i + 1}</div>
-            <div className="ctl-info">
-              <b>노브 {i + 1}</b> <span className="muted small">{i === 0 ? "(뒤)" : "(앞)"}</span>
-              <div className="small">↻ <ActionLine a={kn.cw} cat={cat} /></div>
-              <div className="small">↺ <ActionLine a={kn.ccw} cat={cat} /></div>
-              <div className="small">⏺ <ActionLine a={kn.press} cat={cat} /></div>
+            <div className="ctl-info small">
+              <div>↻ <ActionLine a={kn.cw} cat={cat} /></div>
+              <div>⏺ <ActionLine a={kn.press} cat={cat} /></div>
             </div>
           </div>
         );
       })}
+    </div>
       <div className="faders">
         {preset.faders.map((f, i) => {
           const z = zone(`f${i}`, canDrop(drag, "fader"), (e) => {
@@ -220,16 +222,19 @@ function Controls({ preset }: { preset: Preset }) {
           const v = faderValues[i];
           return (
             <div key={`f${i}`} {...z} className={`ctl fader ${sel ? "sel" : ""} ${z.className}`}
-              onClick={() => useApp.setState({ selection: { kind: "fader", id: i } })}>
-              <div className="fader-track"><div className="fader-fill" style={{ height: `${v < 0 ? 0 : v / 10}%` }} /></div>
-              <b>페이더 {i + 1}</b>
-              <span className="small center"><ActionLine a={f.action} cat={cat} /></span>
-              {v >= 0 && <span className="muted small">{v}</span>}
+              onClick={() => useApp.setState({ selection: { kind: "fader", id: i } })}
+              title={`페이더 ${i + 1}: 누르면 자세히 설정`}>
+              <div className="fader-track">
+                <div className="fader-fill" style={{ height: `${v < 0 ? 0 : v / 10}%` }} />
+                <div className="fader-thumb" style={{ bottom: `calc(${v < 0 ? 0 : v / 10} * (100% - 12px) / 100)` }} />
+              </div>
+              <span className="fader-label">F{i + 1}</span>
+              <span className="fader-action"><ActionLine a={f.action} cat={cat} /></span>
             </div>
           );
         })}
       </div>
-    </div>
+    </>
   );
 }
 

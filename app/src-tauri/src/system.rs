@@ -53,6 +53,7 @@ pub fn same_app(rule: &str, running: &str) -> bool {
 pub struct Stats {
     cpu: f32,
     mem: f32,
+    gpus: Vec<crate::gpu::GpuUsage>,
 }
 
 static SYS: Mutex<Option<System>> = Mutex::new(None);
@@ -66,7 +67,7 @@ pub fn system_stats() -> Stats {
     sys.refresh_cpu_usage();
     sys.refresh_memory();
     let mem = if sys.total_memory() > 0 { sys.used_memory() as f32 / sys.total_memory() as f32 * 100.0 } else { 0.0 };
-    Stats { cpu: sys.global_cpu_usage(), mem }
+    Stats { cpu: sys.global_cpu_usage(), mem, gpus: crate::gpu::read() }
 }
 
 #[tauri::command]

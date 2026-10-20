@@ -68,7 +68,7 @@ async function sha256(parts: Uint8Array[]): Promise<string> {
 
 // Live keys are drawn with placeholders: the app pushes real values as tiles every second,
 // and the bundle hash must not change with the clock.
-export const LIVE_PLACEHOLDER: LiveValues = { clock: "--:--", date: "--", cpu: "CPU --", mem: "MEM --", timer: "00:00" };
+export const LIVE_PLACEHOLDER: LiveValues = { clock: "--:--", date: "--", timer: "00:00", cpu: 0, mem: 0, gpus: [], hist: {} };
 
 export async function buildBundle(store: Store, os: OS): Promise<Bundle> {
   const live = LIVE_PLACEHOLDER;

@@ -1,4 +1,7 @@
-import { CELL_H, CELL_W, spanOfKey, type KeyVisual, type LiveKind, type OS, type Page, type Preset } from "../model";
+import { useEffect, useRef } from "react";
+import { CELL_H, CELL_W, METRICS, spanOfKey, type KeyVisual, type LiveKind, type LiveStyle, type OS, type Page, type Preset } from "../model";
+import { METRIC_COLOR, drawMetricPreview } from "../render";
+import { useLive } from "../live";
 import { updatePage, updatePreset, useApp } from "../state";
 import { clearSpans, dropOnKnob, rectOf, rectKeys, useMediaRequest } from "../drop";
 import { emptyKey } from "../model";
@@ -7,7 +10,12 @@ import { pickFile, usePreviewOS } from "./DeckView";
 
 const LIVE: { id: LiveKind; name: string }[] = [
   { id: "clock", name: "시계" }, { id: "date", name: "날짜" }, { id: "cpu", name: "CPU 사용률" },
-  { id: "mem", name: "메모리 사용률" }, { id: "timer", name: "스톱워치" },
+  { id: "mem", name: "메모리 사용률" }, { id: "gpu", name: "GPU 사용률" }, { id: "timer", name: "스톱워치" },
+];
+
+const STYLES: { id: LiveStyle; name: string }[] = [
+  { id: "number", name: "숫자" }, { id: "ring", name: "원형" }, { id: "gauge", name: "반원 게이지" },
+  { id: "bar", name: "막대" }, { id: "graph", name: "그래프" },
 ];
 
 export function Inspector({ preset, page }: { preset: Preset; page: Page }) {
@@ -108,11 +116,55 @@ function VisualEditor({ visual, onChange, k, target }: { visual: KeyVisual; onCh
           {LIVE.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
       )}
+      {visual.kind === "live" && visual.live && METRICS.includes(visual.live) && <MetricOptions visual={visual} set={set} />}
       {visual.kind === "live" && visual.live === "timer" && <p className="muted small">스톱워치는 「시간」의 「스톱워치 시작 / 정지」 기능과 같이 쓰세요.</p>}
       {visual.kind === "none" && <p className="muted small">넣은 기능의 아이콘과 이름이 자동으로 보여요.</p>}
       <p className="muted small">키 한 칸은 {CELL_W}×{Math.round(CELL_H)} 픽셀이에요.</p>
     </div>
   );
+}
+
+// Display design and color of a usage key, plus which graphics card for GPU
+function MetricOptions({ visual, set }: { visual: KeyVisual; set: (p: Partial<KeyVisual>) => void }) {
+  const gpus = useLive((s) => s.values.gpus);
+  const style = visual.liveStyle ?? "number";
+  return (
+    <>
+      <span className="small">표시 모양</span>
+      <div className="style-picks">
+        {STYLES.map((st) => (
+          <button key={st.id} className={`style-pick ${style === st.id ? "on" : ""}`} onClick={() => set({ liveStyle: st.id })}>
+            <StylePreview visual={{ ...visual, liveStyle: st.id }} />
+            <span>{st.name}</span>
+          </button>
+        ))}
+      </div>
+      {visual.live === "gpu" && (
+        <label className="field"><span>GPU 선택</span>
+          <select value={visual.gpuId ?? ""} onChange={(e) => set({ gpuId: e.target.value || undefined })}>
+            <option value="">자동 (지금 가장 바쁜 GPU)</option>
+            {gpus.map((g) => <option key={g.id} value={g.id}>{g.name} · 지금 {Math.round(g.usage)}%</option>)}
+            {visual.gpuId && !gpus.some((g) => g.id === visual.gpuId) && <option value={visual.gpuId}>(이 PC에 없는 GPU)</option>}
+          </select>
+        </label>
+      )}
+      <label className="color"><input type="color" value={visual.fg ?? METRIC_COLOR[visual.live ?? "cpu"]} onChange={(e) => set({ fg: e.target.value })} /> 색</label>
+    </>
+  );
+}
+
+// Small canvas drawing of one style with the current value
+function StylePreview({ visual }: { visual: KeyVisual }) {
+  const live = useLive((s) => s.values);
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const ctx = ref.current!.getContext("2d")!;
+    ctx.clearRect(0, 0, 96, 107);
+    ctx.fillStyle = "#1b1d24";
+    ctx.beginPath(); ctx.roundRect(3, 3, 90, 101, 10); ctx.fill();
+    drawMetricPreview(ctx, visual, live);
+  }, [visual, live]);
+  return <canvas ref={ref} width={96} height={107} />;
 }
 
 function TitleEditor({ visual, onChange }: { visual: KeyVisual; onChange: (v: KeyVisual) => void }) {

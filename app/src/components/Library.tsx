@@ -14,10 +14,21 @@ const VISUALS: { name: string; icon: string; item: DragItem }[] = [
   { name: "날짜", icon: "📅", item: { kind: "visual", visual: { kind: "live", live: "date" } as KeyVisual } },
   { name: "CPU 사용률", icon: "🧮", item: { kind: "visual", visual: { kind: "live", live: "cpu" } as KeyVisual } },
   { name: "메모리 사용률", icon: "💾", item: { kind: "visual", visual: { kind: "live", live: "mem" } as KeyVisual } },
+  { name: "GPU 사용률", icon: "🎮", item: { kind: "visual", visual: { kind: "live", live: "gpu", liveStyle: "gauge" } as KeyVisual } },
   { name: "스톱워치 표시", icon: "⏱", item: { kind: "visual", visual: { kind: "live", live: "timer" } as KeyVisual } },
 ];
 
 const SLOT_NAME: Record<string, string> = { key: "키", dial: "노브", fader: "페이더" };
+
+type Tab = "all" | "key" | "dial" | "fader";
+const TABS: { id: Tab; name: string }[] = [{ id: "all", name: "전체" }, { id: "key", name: "키" }, { id: "dial", name: "노브" }, { id: "fader", name: "페이더" }];
+const TAB_NOTE: Record<Tab, string> = {
+  all: "",
+  key: "키에 넣는 기능이에요. 노브의 각 칸(돌리기·누르기)에도 넣을 수 있어요.",
+  dial: "노브 돌리기 두 방향을 한 번에 채우는 기능이에요. 키 기능도 노브의 각 칸에 넣을 수 있어요.",
+  fader: "페이더 위치(0~100%)를 값으로 쓰는 기능이에요.",
+};
+const fits = (d: ActionDef, tab: Tab) => d.category !== "숨김" && (tab === "all" ? d.slots.length > 0 : d.slots.includes(tab));
 
 function osTag(d: ActionDef): string {
   const os = d.os?.({}, { os: "windows", store: useApp.getState().store, pageIndex: () => -1 });
@@ -45,44 +56,51 @@ export function Library() {
   const [appId, setAppId] = useState<string | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({ 화면: true, 페이지: true, 키보드: true });
   const [macro, setMacro] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("all");
   const macros = useApp((s) => s.store.macros);
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
 
   const query = q.trim().toLowerCase();
-  const match = (d: ActionDef) => !query || d.name.toLowerCase().includes(query);
+  const match = (d: ActionDef) => fits(d, tab) && (!query || d.name.toLowerCase().includes(query));
   const pack = APP_PACKS.find((p) => p.id === appId);
+  const showVisuals = tab === "all" || tab === "key";
+  const packs = APP_PACKS.filter((p) => p.actions.some((d) => fits(d, tab)));
 
   return (
     <aside className="library">
       <div className="panel-head"><b>기능</b></div>
       <input className="search" placeholder="기능 찾기…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="seg tabs">
+        {TABS.map((t) => <button key={t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}>{t.name}</button>)}
+      </div>
+      {TAB_NOTE[tab] && <p className="muted small">{TAB_NOTE[tab]}</p>}
       <div className="lib-scroll">
         {query ? (
           <>
-            {[...ACTIONS.filter((d) => d.category !== "숨김"), ...APP_PACKS.flatMap((p) => p.actions)].filter(match).map((d) => <Item key={d.id} d={d} />)}
+            {[...ACTIONS, ...APP_PACKS.flatMap((p) => p.actions)].filter(match).map((d) => <Item key={d.id} d={d} />)}
           </>
         ) : pack ? (
           <>
             <button className="lib-back" onClick={() => setAppId(null)}>← 앱 목록</button>
             <div className="lib-app-title">{pack.icon} {pack.name}</div>
             <p className="muted small">{pack.note}</p>
-            {pack.actions.map((d) => <Item key={d.id} d={d} />)}
+            {pack.actions.filter(match).map((d) => <Item key={d.id} d={d} />)}
           </>
         ) : (
           <>
-            <Section title="화면 표시" id="화면" open={open} toggle={toggle}>
+            {showVisuals && <Section title="화면 표시" id="화면" open={open} toggle={toggle}>
               {VISUALS.map((v) => (
                 <div key={v.name} className="lib-item" draggable onDragStart={(e) => startDrag(e, v.item)} onDragEnd={endDrag}>
                   <span className="lib-icon">{v.icon}</span><span className="grow">{v.name}</span>
                 </div>
               ))}
-            </Section>
-            {CATEGORIES.map((c) => (
-              <Section key={c} title={c} id={c} open={open} toggle={toggle}>
-                {ACTIONS.filter((d) => d.category === c).map((d) => <Item key={d.id} d={d} />)}
+            </Section>}
+            {CATEGORIES.filter((c) => ACTIONS.some((d) => d.category === c && match(d))).map((c) => (
+              <Section key={c} title={c} id={c} open={tab === "all" ? open : { ...open, [c]: open[c] ?? true }} toggle={toggle}>
+                {ACTIONS.filter((d) => d.category === c && match(d)).map((d) => <Item key={d.id} d={d} />)}
               </Section>
             ))}
-            <Section title="매크로" id="매크로" open={open} toggle={toggle}>
+            {showVisuals && <Section title="매크로" id="매크로" open={open} toggle={toggle}>
               {macros.map((m) => (
                 <div key={m.id} className="lib-item" draggable
                   onDragStart={(e) => startDrag(e, { kind: "action", ref: { type: "macro", params: { macroId: m.id } }, slots: ["key"] })}
@@ -92,12 +110,12 @@ export function Library() {
                 </div>
               ))}
               <button className="lib-add" onClick={() => setMacro("new")}>+ 새 매크로 만들기</button>
-            </Section>
+            </Section>}
             <Section title="앱" id="앱" open={{ ...open, 앱: true }} toggle={() => {}}>
-              {APP_PACKS.map((p) => (
-                <button key={p.id} className="lib-item app" onClick={() => setAppId(p.id)}>
+              {packs.map((p) => (
+                <button key={p.id} className="lib-item lib-app" onClick={() => setAppId(p.id)}>
                   <span className="lib-icon">{p.icon}</span><span className="grow">{p.name}</span>
-                  <span className="muted small">{p.actions.length}개 ›</span>
+                  <span className="muted small">{p.actions.filter((d) => fits(d, tab)).length}개 ›</span>
                 </button>
               ))}
               <p className="muted small">다른 프로그램도 계속 추가할 예정이에요.</p>

@@ -10,6 +10,7 @@ import { canDrop } from "../drop";
 import { importAudio } from "../media";
 import { pickFile } from "./DeckView";
 import { MacroEditor } from "./MacroEditor";
+import { AppPicker } from "./AppPicker";
 
 // A drop target holding one action, with its parameter fields
 export function ActionSlot({ label, value, onChange, accept, previewOS, hint, onDial }: {
@@ -68,8 +69,8 @@ function ParamField({ def, value, onChange, os, pages }: {
 }) {
   const macros = useApp((s) => s.store.macros);
   const media = useApp((s) => s.store.media);
-  const recent = useApp((s) => s.recentApps);
   const [macroOpen, setMacroOpen] = useState<string | null>(null);
+  const [picker, setPicker] = useState<"launch" | "process" | null>(null);
 
   switch (def.kind) {
     case "hotkey":
@@ -96,6 +97,20 @@ function ParamField({ def, value, onChange, os, pages }: {
           {macroOpen && <MacroEditor id={macroOpen === "new" ? null : macroOpen} onClose={(id) => { if (id && macroOpen === "new") onChange(id); setMacroOpen(null); }} />}
         </div>
       );
+    case "app":
+      return (
+        <div className="field"><span>{def.label}</span>
+          <div className="row">
+            <button className="primary" onClick={() => setPicker("launch")}>설치된 앱에서 고르기…</button>
+            <button onClick={async () => {
+              const p = await open({ multiple: false, directory: false });
+              if (typeof p === "string") onChange(p);
+            }}>파일 찾아보기…</button>
+          </div>
+          <input value={value ?? ""} placeholder={def.placeholder} onChange={(e) => onChange(e.target.value)} />
+          {picker && <AppPicker mode="launch" onPick={onChange} onClose={() => setPicker(null)} />}
+        </div>
+      );
     case "file":
       return (
         <div className="field"><span>{def.label}</span>
@@ -110,8 +125,11 @@ function ParamField({ def, value, onChange, os, pages }: {
     case "process":
       return (
         <div className="field"><span>{def.label}</span>
-          <input value={value ?? ""} onChange={(e) => onChange(e.target.value)} />
-          {recent.length > 0 && <div className="row wrap">{recent.slice(0, 5).map((r) => <button key={r} className="chip" onClick={() => onChange(r)}>{r}</button>)}</div>}
+          <div className="row">
+            <input className="grow" value={value ?? ""} placeholder={def.placeholder} onChange={(e) => onChange(e.target.value)} />
+            <button className="primary" onClick={() => setPicker("process")}>앱 목록에서 고르기…</button>
+          </div>
+          {picker && <AppPicker mode="process" onPick={onChange} onClose={() => setPicker(null)} />}
         </div>
       );
     case "media":

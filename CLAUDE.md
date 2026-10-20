@@ -46,7 +46,8 @@ hardware/   PCB 거버·3D 출력·아크릴 파일과 그걸 만든 파이썬 �
 - 프리셋은 앱에서만 고르고 고침. 보드에는 "보드에 적용"(또는 연결될 때 해시가 다르면 자동)으로 **번들**을 보냄 (`bundle.ts`, `sync.ts`)
 - 기능 목록은 `src/catalog.ts` 한 곳: `hid()` = 보드가 직접 실행(앱 없어도 동작), `run()` = 앱이 실행(`src-tauri/src/actions.rs`의 `Op`). 프로그램별 기능은 `APP_PACKS`에 팩을 추가 (지금 Photoshop·OBS)
 - 화면 그리기는 `render.ts` 하나로 앱 미리보기와 보드 JPEG/GIF를 똑같이 만듦. 영상 → GIF 변환·GIF 디코드는 `media.ts`(gifenc·gifuct-js)
-- Rust: `device.rs`(포트 찾기·번들 전송) `runtime.rs`(act/fader → 실행, 앞 프로그램 감지로 페이지 자동 전환) `actions.rs`(enigo 키 입력·열기) `audio.rs`(Windows Core Audio / Mac osascript) `obs.rs`(obws) `store.rs` `system.rs`
+- Rust: `device.rs`(포트 찾기·번들 전송) `runtime.rs`(act/fader → 실행, 앞 프로그램 감지로 페이지 자동 전환) `actions.rs`(enigo 키 입력·열기) `audio.rs`(Windows Core Audio / Mac osascript) `obs.rs`(obws) `store.rs` `system.rs`(CPU·메모리) `gpu.rs`(GPU별 사용률: Windows PDH "GPU Engine" + DXGI 이름, id = 어댑터 LUID) `apps.rs`(설치된 앱: 시작 메뉴 .lnk와 대상 exe / Mac .app, 지금 소리 나는 앱)
+- 실시간 사용률 키(CPU·메모리·GPU)는 표시 모양 5가지(숫자·원형·반원 게이지·막대·그래프)와 GPU 선택(`gpuId`, 비우면 가장 바쁜 GPU)을 가짐. 앱이 1초마다 타일로 그려 보드에 보냄
 - 창을 닫으면 트레이로 숨음. 로그인 시 자동 실행(`--autostart` 인자, 개발 모드에서는 등록 안 함)
 - 업데이트: `tauri-plugin-updater`가 `github.com/jejykim/kivo-deck` 최신 릴리스의 `latest.json`을 확인. 서명 비밀 키는 `%USERPROFILE%\.tauri\kivo-deck.key`(비밀번호 없음, **절대 커밋 금지**), 공개 키는 tauri.conf.json. GitHub 저장소 Secrets `TAURI_SIGNING_PRIVATE_KEY`에 키 파일 내용을 넣어야 릴리스가 서명됨
 - 새 버전 내기: `app/package.json`·`app/src-tauri/Cargo.toml`·`app/src-tauri/tauri.conf.json`의 version을 같이 올리고 `git tag vX.Y.Z; git push --tags`

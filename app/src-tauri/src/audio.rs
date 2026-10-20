@@ -67,6 +67,23 @@ mod imp {
         }
     }
 
+    // exe names of the programs with an audio session on the default output device
+    pub fn session_processes() -> Result<Vec<String>> {
+        unsafe {
+            let mgr: IAudioSessionManager2 = endpoint(eRender)?.Activate(CLSCTX_ALL, None)?;
+            let list = mgr.GetSessionEnumerator()?;
+            let mut out = Vec::new();
+            for i in 0..list.GetCount()? {
+                let ctl2: IAudioSessionControl2 = list.GetSession(i)?.cast()?;
+                let pid = ctl2.GetProcessId().unwrap_or(0);
+                if let Some(n) = (pid != 0).then(|| process_name(pid)).flatten() {
+                    if !out.contains(&n) { out.push(n); }
+                }
+            }
+            Ok(out)
+        }
+    }
+
     pub fn set_app_volume(process: &str, v: f32) -> Result<bool> {
         for_sessions(process, |s| unsafe { s.SetMasterVolume(v, std::ptr::null()) })
     }
@@ -82,6 +99,11 @@ mod imp {
 #[cfg(windows)]
 pub fn init_thread() {
     imp::init_thread();
+}
+#[cfg(windows)]
+pub fn session_processes() -> Vec<String> {
+    init_thread();
+    imp::session_processes().unwrap_or_default()
 }
 #[cfg(windows)]
 pub fn set_system_volume(v: f32) -> Result<(), String> {
@@ -113,6 +135,10 @@ fn osascript(script: &str) -> Result<String, String> {
 }
 #[cfg(not(windows))]
 pub fn init_thread() {}
+#[cfg(not(windows))]
+pub fn session_processes() -> Vec<String> {
+    vec![]
+}
 #[cfg(not(windows))]
 pub fn set_system_volume(v: f32) -> Result<(), String> {
     osascript(&format!("set volume output volume {}", (v * 100.0).round() as i32)).map(|_| ())
