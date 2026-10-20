@@ -36,7 +36,7 @@ hardware/   PCB 거버·3D 출력·아크릴 파일과 그걸 만든 파이썬 �
 - 터치 보정: 두 노브를 누른 채 USB를 꽂거나 `{"cmd":"calibrate"}`. 값은 NVS(Preferences "kivo"/"tcal")에 저장
 
 ## PC 앱
-- 실행: `cd app; npm run tauri dev` (처음 한 번 `npm install`). Rust는 `%USERPROFILE%\.cargoin`, MSVC Build Tools 설치됨
+- 실행: `cd app; npm run tauri dev` (처음 한 번 `npm install`). Rust는 `%USERPROFILE%\.cargo/bin`, MSVC Build Tools 설치됨
 - `src-tauri/src/device.rs`: Espressif VID(0x303A) USB 포트만 골라 `hello` 핸드셰이크 → 연결 유지·자동 재연결. 이벤트는 `device-event`, 연결 상태는 `device-status`로 웹 쪽에 보냄. 명령은 `send_command`
 - `src/main.ts`: 키 15칸·노브·페이더 표시와 로그, 기본 명령 버튼(모니터 화면)
 
