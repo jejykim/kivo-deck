@@ -11,7 +11,7 @@ export type Slot = "key" | "dial" | "fader";
 export interface ParamDef {
   key: string;
   label: string;
-  kind: "text" | "hotkey" | "number" | "page" | "macro" | "file" | "app" | "url" | "process" | "media";
+  kind: "text" | "hotkey" | "number" | "page" | "macro" | "file" | "app" | "url" | "process" | "media" | "bool" | "audioOut" | "audioIn";
   placeholder?: string;
 }
 
@@ -37,7 +37,13 @@ export type Op =
   | { op: "obs"; req: string; arg?: string }
   | { op: "sound"; mediaId: string }
   | { op: "timer"; cmd: "toggle" | "reset" }
-  | { op: "seq"; steps: Op[] };
+  | { op: "seq"; steps: Op[] }
+  | { op: "launchApp"; names: string[] }
+  | { op: "terminal"; command: string }
+  | { op: "exec"; program: string; args: string[] }
+  | { op: "audioDevice"; id: string }
+  | { op: "audioNext"; input: boolean }
+  | { op: "http"; method: "GET" | "POST"; url: string; body?: string };
 
 export interface Ctx {
   os: OS;
@@ -181,6 +187,31 @@ export const ACTIONS: ActionDef[] = [
     params: [{ key: "mediaId", label: "소리 파일", kind: "media" }],
     run: (p) => (p.mediaId ? { op: "sound", mediaId: p.mediaId } : null),
   },
+  // Windows only for now: changing the default device needs an API macOS does not expose to scripts
+  {
+    id: "audio.output", name: "출력 장치 바꾸기 (스피커·이어폰)", icon: "🎧", category: "미디어", slots: ["key"],
+    params: [{ key: "deviceId", label: "바꿀 장치", kind: "audioOut" }],
+    os: () => ["windows"],
+    run: (p) => (p.deviceId ? { op: "audioDevice", id: p.deviceId } : null),
+    label: (p) => p.name ?? "",
+  },
+  {
+    id: "audio.outputNext", name: "출력 장치 차례로 바꾸기", icon: "🔀", category: "미디어", slots: ["key"],
+    os: () => ["windows"],
+    run: () => ({ op: "audioNext", input: false }),
+  },
+  {
+    id: "audio.input", name: "입력 장치 바꾸기 (마이크)", icon: "🎙", category: "미디어", slots: ["key"],
+    params: [{ key: "deviceId", label: "바꿀 마이크", kind: "audioIn" }],
+    os: () => ["windows"],
+    run: (p) => (p.deviceId ? { op: "audioDevice", id: p.deviceId } : null),
+    label: (p) => p.name ?? "",
+  },
+  {
+    id: "audio.inputNext", name: "입력 장치 차례로 바꾸기", icon: "🔀", category: "미디어", slots: ["key"],
+    os: () => ["windows"],
+    run: () => ({ op: "audioNext", input: true }),
+  },
 
   // ---------------------------------------------------------------- 열기
   {
@@ -217,13 +248,77 @@ export interface AppPack {
   actions: ActionDef[];
 }
 
-function shortcut(app: string, id: string, name: string, keys: string, icon = "⌨"): ActionDef {
+// keys: one hotkey for both OS, or { windows, mac } when they differ
+type Keys = string | Record<OS, string>;
+const keysFor = (k: Keys, os: OS) => (typeof k === "string" ? k : k[os]);
+
+function shortcut(app: string, id: string, name: string, keys: Keys, icon = "⌨"): ActionDef {
   return {
     id: `app.${app}.${id}`, name, icon, category: "앱", app, slots: ["key"],
-    os: () => hotkeyOS(keys),
-    hid: (_p, c) => hotkeyHid(keys, c.os),
-    run: () => ({ op: "hotkey", keys }),
+    os: () => (typeof keys === "string" ? hotkeyOS(keys) : BOTH),
+    hid: (_p, c) => hotkeyHid(keysFor(keys, c.os), c.os),
+    run: (_p, c) => ({ op: "hotkey", keys: keysFor(keys, c.os) }),
   };
+}
+// Opens the app (or brings it to the front). names: how it is called in the Start menu / Applications
+function launch(app: string, appName: string, names: string[]): ActionDef {
+  return {
+    id: `app.${app}.open`, name: `${appName} 열기`, icon: "🚀", category: "앱", app, slots: ["key"],
+    run: () => ({ op: "launchApp", names }),
+  };
+}
+// AI apps: opens the app, types the text and (optionally) sends it
+function prompt(app: string, names: string[]): ActionDef {
+  return {
+    id: `app.${app}.prompt`, name: "질문 보내기", icon: "💬", category: "앱", app, slots: ["key"],
+    params: [
+      { key: "text", label: "보낼 글", kind: "text" },
+      { key: "submit", label: "바로 보내기 (Enter까지 누름)", kind: "bool" },
+    ],
+    run: (p) => (p.text ? {
+      op: "seq",
+      steps: [{ op: "launchApp", names }, { op: "delay", ms: 1000 }, { op: "text", text: p.text }, ...(p.submit !== false ? [{ op: "hotkey" as const, keys: "Enter" }] : [])],
+    } : null),
+    label: (p) => (p.text ?? "").slice(0, 14),
+  };
+}
+function openUrl(app: string, id: string, name: string, url: string, icon = "🌐"): ActionDef {
+  return { id: `app.${app}.${id}`, name, icon, category: "앱", app, slots: ["key"], run: () => ({ op: "open", target: url }) };
+}
+const COMFY_DEFAULT = "http://127.0.0.1:8188";
+const comfyServer: ParamDef = { key: "server", label: "ComfyUI 주소", kind: "url", placeholder: `비워 두면 ${COMFY_DEFAULT}` };
+function comfyApi(id: string, name: string, icon: string, path: string, body?: object): ActionDef {
+  return {
+    id: `app.comfyui.${id}`, name, icon, category: "앱", app: "comfyui", slots: ["key"],
+    params: [comfyServer],
+    run: (p) => ({ op: "http", method: "POST", url: `${(p.server || COMFY_DEFAULT).replace(/\/$/, "")}${path}`, body: body ? JSON.stringify(body) : undefined }),
+  };
+}
+const ollamaModel: ParamDef = { key: "model", label: "모델", kind: "text", placeholder: "모델 이름 (예: llama3.2, gemma3)" };
+
+// Editor shortcuts shared by VS Code and editors built on it (Antigravity)
+function codeEditor(app: string): ActionDef[] {
+  return [
+    shortcut(app, "palette", "명령 팔레트", "Mod+Shift+P", "⌘"),
+    shortcut(app, "quickOpen", "파일 빠르게 열기", "Mod+P", "🔎"),
+    shortcut(app, "terminal", "터미널 열기 / 닫기", "Ctrl+`", "🖥"),
+    shortcut(app, "sidebar", "사이드바 열기 / 닫기", "Mod+B", "◧"),
+    shortcut(app, "explorer", "탐색기", "Mod+Shift+E", "📁"),
+    shortcut(app, "search", "전체 검색", "Mod+Shift+F", "🔍"),
+    shortcut(app, "git", "소스 제어", "Ctrl+Shift+G", "🌿"),
+    shortcut(app, "extensions", "확장", "Mod+Shift+X", "🧩"),
+    shortcut(app, "save", "저장", "Mod+S", "💾"),
+    shortcut(app, "comment", "줄 주석", "Mod+/", "💬"),
+    shortcut(app, "format", "문서 서식 맞추기", "Shift+Alt+F", "✨"),
+    shortcut(app, "split", "편집기 나누기", "Mod+\\", "◫"),
+    shortcut(app, "definition", "정의로 이동", "F12", "↗"),
+    shortcut(app, "rename", "이름 바꾸기", "F2", "✏"),
+    shortcut(app, "debug", "디버그 시작 / 계속", "F5", "▶"),
+    shortcut(app, "stopDebug", "디버그 중지", "Shift+F5", "⏹"),
+    shortcut(app, "closeTab", "탭 닫기", { windows: "Ctrl+F4", mac: "Mod+W" }, "✕"),
+    shortcutDial(app, "moveLine", "줄 위 / 아래로 옮기기 (노브)", "Alt+Down", "Alt+Up", "↕"),
+    shortcutDial(app, "zoom", "글자 크게 / 작게 (노브)", "Mod+=", "Mod+-", "🔍"),
+  ];
 }
 function shortcutDial(app: string, id: string, name: string, cw: string, ccw: string, icon = "🎚"): ActionDef {
   return {
@@ -290,6 +385,176 @@ export const APP_PACKS: AppPack[] = [
         params: [{ key: "input", label: "오디오 소스 이름", kind: "text" }],
         run: (p) => ({ op: "obs", req: "volume", arg: p.input ?? "" }),
       },
+    ],
+  },
+  {
+    id: "premiere", name: "Premiere Pro", icon: "🎞",
+    note: "프리미어 프로 기본 단축키로 동작해요. 프리미어 프로가 앞에 있을 때 눌러 주세요.",
+    actions: [
+      launch("premiere", "Premiere Pro", ["Adobe Premiere Pro 2026", "Adobe Premiere Pro", "Premiere Pro"]),
+      shortcut("premiere", "play", "재생 / 정지", "Space", "⏯"),
+      shortcut("premiere", "addEdit", "재생 헤드에서 자르기", "Mod+K", "✂"),
+      shortcut("premiere", "addEditAll", "모든 트랙 자르기", "Mod+Shift+K", "✂"),
+      shortcut("premiere", "rippleDelete", "잔물결 삭제", "Shift+Delete", "⌫"),
+      shortcut("premiere", "selection", "선택 도구", "V", "↖"),
+      shortcut("premiere", "razor", "자르기 도구", "C", "🔪"),
+      shortcut("premiere", "trackSelect", "트랙 앞으로 선택 도구", "A", "⇥"),
+      shortcut("premiere", "rippleEdit", "잔물결 편집 도구", "B", "⇿"),
+      shortcut("premiere", "text", "문자 도구", "T", "T"),
+      shortcut("premiere", "markIn", "시작 표시 (In)", "I", "["),
+      shortcut("premiere", "markOut", "종료 표시 (Out)", "O", "]"),
+      shortcut("premiere", "marker", "마커 추가", "M", "📍"),
+      shortcut("premiere", "prevEdit", "이전 편집 지점", "Up", "⏮"),
+      shortcut("premiere", "nextEdit", "다음 편집 지점", "Down", "⏭"),
+      shortcut("premiere", "maximize", "패널 최대화", "`", "⛶"),
+      shortcut("premiere", "zoomFit", "타임라인 전체 보기", "\\", "↔"),
+      shortcut("premiere", "undo", "실행 취소", "Mod+Z", "↶"),
+      shortcut("premiere", "redo", "다시 실행", "Mod+Shift+Z", "↷"),
+      shortcut("premiere", "save", "저장", "Mod+S", "💾"),
+      shortcut("premiere", "export", "내보내기", "Mod+M", "📤"),
+      shortcutDial("premiere", "frame", "한 프레임씩 이동 (노브)", "Right", "Left", "🎞"),
+      shortcutDial("premiere", "shuttle", "빨리 감기 / 되감기 (노브)", "L", "J", "⏩"),
+      shortcutDial("premiere", "timelineZoom", "타임라인 확대 / 축소 (노브)", "=", "-", "🔍"),
+      shortcutDial("premiere", "editPoint", "편집 지점 이동 (노브)", "Down", "Up", "⇅"),
+    ],
+  },
+  {
+    id: "figma", name: "Figma", icon: "🎨",
+    note: "피그마 기본 단축키로 동작해요. 피그마가 앞에 있을 때 눌러 주세요.",
+    actions: [
+      launch("figma", "Figma", ["Figma"]),
+      shortcut("figma", "move", "이동 도구", "V", "↖"),
+      shortcut("figma", "frame", "프레임", "F", "#"),
+      shortcut("figma", "rect", "사각형", "R", "▭"),
+      shortcut("figma", "ellipse", "원", "O", "◯"),
+      shortcut("figma", "line", "선", "L", "╱"),
+      shortcut("figma", "arrow", "화살표", "Shift+L", "→"),
+      shortcut("figma", "pen", "펜", "P", "✒"),
+      shortcut("figma", "text", "텍스트", "T", "T"),
+      shortcut("figma", "comment", "댓글", "C", "💬"),
+      shortcut("figma", "eyedropper", "스포이드", "I", "💧"),
+      shortcut("figma", "group", "그룹", "Mod+G", "▣"),
+      shortcut("figma", "ungroup", "그룹 해제", "Mod+Shift+G", "▢"),
+      shortcut("figma", "frameSelection", "선택 영역을 프레임으로", "Mod+Alt+G", "⬚"),
+      shortcut("figma", "component", "컴포넌트 만들기", "Mod+Alt+K", "❖"),
+      shortcut("figma", "autoLayout", "오토 레이아웃", "Shift+A", "☰"),
+      shortcut("figma", "duplicate", "복제", "Mod+D", "⧉"),
+      shortcut("figma", "zoomFit", "전체 보기", "Shift+1", "⛶"),
+      shortcut("figma", "zoomSelection", "선택한 것 크게 보기", "Shift+2", "🔍"),
+      shortcut("figma", "zoom100", "100%로 보기", "Shift+0", "1:1"),
+      shortcut("figma", "hideUI", "화면 도구 숨기기", "Mod+\\", "◻"),
+      shortcut("figma", "export", "내보내기", "Mod+Shift+E", "📤"),
+      shortcut("figma", "undo", "실행 취소", "Mod+Z", "↶"),
+      shortcut("figma", "redo", "다시 실행", "Mod+Shift+Z", "↷"),
+      shortcutDial("figma", "zoom", "확대 / 축소 (노브)", "Shift+=", "-", "🔍"),
+      shortcutDial("figma", "history", "작업 내역 앞 / 뒤 (노브)", "Mod+Shift+Z", "Mod+Z", "🕘"),
+    ],
+  },
+  {
+    id: "claude", name: "Claude", icon: "✳",
+    note: "Claude 데스크톱 앱이에요. 단축키는 버전마다 달라서, 앱 열기와 질문 보내기만 넣었어요.",
+    actions: [launch("claude", "Claude", ["Claude"]), prompt("claude", ["Claude"])],
+  },
+  {
+    id: "chatgpt", name: "ChatGPT", icon: "🤖",
+    note: "ChatGPT 데스크톱 앱의 기본 단축키로 동작해요.",
+    actions: [
+      launch("chatgpt", "ChatGPT", ["ChatGPT"]),
+      prompt("chatgpt", ["ChatGPT"]),
+      shortcut("chatgpt", "newChat", "새 대화", "Mod+Shift+O", "➕"),
+      shortcut("chatgpt", "sidebar", "사이드바 열기 / 닫기", "Mod+Shift+S", "◧"),
+      shortcut("chatgpt", "copyLast", "마지막 답변 복사", "Mod+Shift+C", "📋"),
+      shortcut("chatgpt", "focusInput", "입력창으로 이동", "Shift+Esc", "⌨"),
+      shortcut("chatgpt", "companion", "빠른 창 열기", "Alt+Space", "⚡"),
+    ],
+  },
+  {
+    id: "harness", name: "DeepSeek 하네스", icon: "🐋",
+    note: "DeepSeek Harness 데스크톱 앱이에요(프리뷰). 단축키가 아직 정해지지 않아 앱 열기와 질문 보내기만 넣었어요.",
+    actions: [launch("harness", "하네스", ["DeepSeek Harness", "Harness"]), prompt("harness", ["DeepSeek Harness", "Harness"])],
+  },
+  {
+    id: "steam", name: "Steam", icon: "🎮",
+    note: "스팀 주소(steam://)로 동작해서 스팀이 꺼져 있어도 켜면서 열어요.",
+    actions: [
+      openUrl("steam", "open", "스팀 열기", "steam://open/main", "🚀"),
+      openUrl("steam", "library", "라이브러리", "steam://open/games", "📚"),
+      openUrl("steam", "store", "상점", "steam://store", "🛒"),
+      openUrl("steam", "friends", "친구", "steam://open/friends", "👥"),
+      openUrl("steam", "downloads", "다운로드", "steam://open/downloads", "⬇"),
+      openUrl("steam", "bigpicture", "빅 픽처 모드", "steam://open/bigpicture", "📺"),
+      {
+        id: "app.steam.run", name: "게임 실행", icon: "🎮", category: "앱", app: "steam", slots: ["key"],
+        params: [{ key: "appid", label: "게임 번호", kind: "text", placeholder: "상점 주소의 숫자 (예: 570)" }],
+        run: (p) => (p.appid ? { op: "open", target: `steam://rungameid/${String(p.appid).trim()}` } : null),
+        label: (p) => p.appid ?? "",
+      },
+      shortcut("steam", "screenshot", "스크린샷 (게임 중)", "F12", "📸"),
+      shortcut("steam", "overlay", "스팀 오버레이 (게임 중)", "Shift+Tab", "🪟"),
+    ],
+  },
+  {
+    id: "ollama", name: "Ollama", icon: "🦙",
+    note: "Ollama가 설치되어 있어야 해요. 모델 이름은 터미널의 `ollama list`에 나오는 이름 그대로 넣어 주세요.",
+    actions: [
+      launch("ollama", "Ollama", ["Ollama"]),
+      prompt("ollama", ["Ollama"]),
+      {
+        id: "app.ollama.chat", name: "모델과 대화 (터미널)", icon: "🖥", category: "앱", app: "ollama", slots: ["key"],
+        params: [ollamaModel],
+        run: (p) => (p.model ? { op: "terminal", command: `ollama run ${p.model}` } : null),
+        label: (p) => p.model ?? "",
+      },
+      {
+        id: "app.ollama.stop", name: "모델 메모리에서 내리기", icon: "⏏", category: "앱", app: "ollama", slots: ["key"],
+        params: [ollamaModel],
+        run: (p) => (p.model ? { op: "exec", program: "ollama", args: ["stop", p.model] } : null),
+        label: (p) => p.model ?? "",
+      },
+      { id: "app.ollama.ps", name: "실행 중인 모델 보기", icon: "📋", category: "앱", app: "ollama", slots: ["key"], run: () => ({ op: "terminal", command: "ollama ps" }) },
+    ],
+  },
+  {
+    id: "vscode", name: "VS Code", icon: "🧑‍💻",
+    note: "VS Code 기본 단축키로 동작해요. VS Code가 앞에 있을 때 눌러 주세요.",
+    actions: [
+      launch("vscode", "VS Code", ["Visual Studio Code", "Code"]),
+      {
+        id: "app.vscode.folder", name: "폴더 열기", icon: "📂", category: "앱", app: "vscode", slots: ["key"],
+        params: [{ key: "path", label: "폴더", kind: "file", placeholder: "폴더 위치 (예: F:\\kivo-deck)" }],
+        run: (p) => (p.path ? { op: "open", target: `vscode://file/${String(p.path).replace(/\\/g, "/")}` } : null),
+        label: (p) => baseName(p.path),
+      },
+      ...codeEditor("vscode"),
+    ],
+  },
+  {
+    id: "antigravity", name: "Antigravity", icon: "🪐",
+    note: "구글 Antigravity예요. VS Code를 바탕으로 만들어져서 편집기 단축키가 같아요.",
+    actions: [
+      launch("antigravity", "Antigravity", ["Antigravity"]),
+      shortcut("antigravity", "agentManager", "편집기 ↔ 에이전트 매니저", "Mod+E", "🤖"),
+      ...codeEditor("antigravity"),
+    ],
+  },
+  {
+    id: "comfyui", name: "ComfyUI", icon: "🧪",
+    note: "단축키는 ComfyUI 화면이 앞에 있을 때, 생성 중지·대기열·VRAM은 ComfyUI 서버에 바로 요청해서 언제든 동작해요.",
+    actions: [
+      launch("comfyui", "ComfyUI", ["ComfyUI", "Comfy Desktop"]),
+      shortcut("comfyui", "queue", "생성 실행 (대기열에 넣기)", "Mod+Enter", "▶"),
+      shortcut("comfyui", "queueFront", "맨 앞에 넣기", "Mod+Shift+Enter", "⏫"),
+      comfyApi("interrupt", "생성 중지", "⏹", "/interrupt"),
+      comfyApi("clearQueue", "대기열 비우기", "🗑", "/queue", { clear: true }),
+      comfyApi("free", "VRAM 비우기 (모델 내리기)", "🧹", "/free", { unload_models: true, free_memory: true }),
+      shortcut("comfyui", "save", "워크플로 저장", "Mod+S", "💾"),
+      shortcut("comfyui", "openWf", "워크플로 열기", "Mod+O", "📂"),
+      shortcut("comfyui", "default", "기본 워크플로 불러오기", "Mod+D", "🏠"),
+      shortcut("comfyui", "mute", "노드 끄기 (Mute)", "Mod+M", "🔇"),
+      shortcut("comfyui", "bypass", "노드 건너뛰기 (Bypass)", "Mod+B", "⤼"),
+      shortcut("comfyui", "fit", "전체 노드 보기", ".", "⛶"),
+      shortcut("comfyui", "undo", "실행 취소", "Mod+Z", "↶"),
+      shortcut("comfyui", "redo", "다시 실행", "Mod+Y", "↷"),
     ],
   },
 ];

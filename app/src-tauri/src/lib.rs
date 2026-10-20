@@ -1,6 +1,7 @@
 mod actions;
 mod apps;
 mod audio;
+mod audio_device;
 mod gpu;
 mod device;
 mod obs;
@@ -104,6 +105,7 @@ pub fn run() {
             system::foreground_app,
             apps::installed_apps,
             apps::audio_apps,
+            audio_device::audio_devices,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

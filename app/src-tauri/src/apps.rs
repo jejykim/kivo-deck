@@ -69,7 +69,34 @@ fn list() -> Vec<AppEntry> {
     for r in roots {
         walk(&r, &mut out, 0);
     }
+    // Store / MSIX apps (Claude, ...) have no .lnk: take the full Start menu list and open them
+    // through shell:AppsFolder. Shortcut entries win because they know the exe name.
+    for (name, id) in start_apps() {
+        if skip_name(&name) || id.starts_with("http") || out.iter().any(|a| a.name.eq_ignore_ascii_case(&name)) {
+            continue;
+        }
+        let exe = id.to_lowercase().ends_with(".exe").then(|| id.rsplit(['\\', '/']).next().unwrap_or("").to_string());
+        out.push(AppEntry { name, path: format!("shell:AppsFolder\\{id}"), exe });
+    }
     out
+}
+
+// (Name, AppID) of every Start menu entry, from PowerShell's Get-StartApps
+#[cfg(windows)]
+fn start_apps() -> Vec<(String, String)> {
+    use std::os::windows::process::CommandExt;
+    let out = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command",
+            "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-StartApps | ConvertTo-Json -Compress"])
+        .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+        .output();
+    let Ok(out) = out else { return vec![] };
+    let Ok(v) = serde_json::from_slice::<serde_json::Value>(&out.stdout) else { return vec![] };
+    let items = if v.is_array() { v.as_array().cloned().unwrap_or_default() } else { vec![v] };
+    items
+        .iter()
+        .filter_map(|i| Some((i["Name"].as_str()?.to_string(), i["AppID"].as_str()?.to_string())))
+        .collect()
 }
 
 #[cfg(not(windows))]
@@ -91,6 +118,27 @@ fn list() -> Vec<AppEntry> {
         }
     }
     out
+}
+
+// The shortcut / .app of the first installed app whose name matches (exact name first, then "contains")
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn find(names: &[String]) -> Option<String> {
+    use std::sync::Mutex;
+    static CACHE: Mutex<Option<Vec<AppEntry>>> = Mutex::new(None);
+    let mut guard = CACHE.lock().unwrap();
+    let apps = guard.get_or_insert_with(list);
+    let lower: Vec<String> = names.iter().map(|n| n.to_lowercase()).collect();
+    for n in &lower {
+        if let Some(a) = apps.iter().find(|a| a.name.to_lowercase() == *n) {
+            return Some(a.path.clone());
+        }
+    }
+    for n in &lower {
+        if let Some(a) = apps.iter().find(|a| a.name.to_lowercase().contains(n.as_str())) {
+            return Some(a.path.clone());
+        }
+    }
+    None
 }
 
 #[tauri::command]
@@ -118,5 +166,20 @@ mod tests {
             println!("{} | {:?}", a.name, a.exe);
         }
         println!("audio: {:?}", tauri::async_runtime::block_on(super::audio_apps()));
+    }
+}
+
+#[cfg(test)]
+mod find_tests {
+    #[test]
+    fn finds_packs() {
+        let packs: &[&[&str]] = &[
+            &["Adobe Premiere Pro 2026", "Adobe Premiere Pro", "Premiere Pro"], &["Figma"], &["Claude"], &["ChatGPT"],
+            &["DeepSeek Harness", "Harness"], &["Ollama"], &["Visual Studio Code", "Code"], &["Antigravity"], &["ComfyUI", "Comfy Desktop"], &["Steam"],
+        ];
+        for names in packs {
+            let v: Vec<String> = names.iter().map(|s| s.to_string()).collect();
+            println!("{:<26} -> {:?}", names[0], super::find(&v).map(|p| p.rsplit(['\\', '/']).next().unwrap_or("").to_string()));
+        }
     }
 }

@@ -26,6 +26,9 @@ export function installDevMock() {
         { name: "OBS Studio", path: "C:\\ProgramData\\...\\OBS Studio.lnk", exe: "obs64.exe" },
       ];
       case "audio_apps": return ["Discord.exe", "chrome.exe"];
+      case "audio_devices": return args.input
+        ? [{ id: "in1", name: "마이크(Razer Hammerhead V3)", default: true }]
+        : [{ id: "out1", name: "스피커(EDIFIER QR30)", default: false }, { id: "out2", name: "헤드폰(Razer Hammerhead V3)", default: true }];
       case "plugin:autostart|is_enabled": return true;
       case "plugin:updater|check": return null;
       case "plugin:app|version": return "0.1.0-dev";

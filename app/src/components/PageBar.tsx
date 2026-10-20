@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { newPage } from "../model";
 import { editingPreset, updatePreset, useApp } from "../state";
@@ -20,6 +20,42 @@ export function PageBar() {
     });
     go(preset.pages.length);
   };
+  // press and hold a tab (0.4 s), then drag it left / right to reorder
+  const [dragging, setDragging] = useState<{ from: number; to: number } | null>(null);
+  const holdTimer = useRef<number | undefined>(undefined);
+  const justDragged = useRef(false);
+  const tabAt = (x: number, y: number) => {
+    const el = document.elementFromPoint(x, y)?.closest("[data-tab]") as HTMLElement | null;
+    return el ? Number(el.dataset.tab) : null;
+  };
+  const startHold = (i: number, e: React.PointerEvent) => {
+    if (renaming != null || e.button !== 0) return;
+    clearTimeout(holdTimer.current);
+    holdTimer.current = window.setTimeout(() => {
+      setDragging({ from: i, to: i });
+      const moveH = (ev: PointerEvent) => {
+        const t = tabAt(ev.clientX, ev.clientY);
+        if (t != null) setDragging((d) => (d ? { ...d, to: t } : d));
+      };
+      const upH = () => {
+        window.removeEventListener("pointermove", moveH);
+        window.removeEventListener("pointerup", upH);
+        setDragging((d) => {
+          if (d && d.to !== d.from) {
+            updatePreset((p) => { const [pg] = p.pages.splice(d.from, 1); p.pages.splice(d.to, 0, pg); });
+            useApp.setState({ pageIdx: d.to, selection: null });
+          }
+          return null;
+        });
+        justDragged.current = true;
+        setTimeout(() => { justDragged.current = false; }, 0);
+      };
+      window.addEventListener("pointermove", moveH);
+      window.addEventListener("pointerup", upH);
+    }, 400);
+  };
+  const cancelHold = () => clearTimeout(holdTimer.current);
+
   const move = (d: number) => {
     const j = pageIdx + d;
     if (j < 0 || j >= preset.pages.length) return;
@@ -30,8 +66,11 @@ export function PageBar() {
   return (
     <div className="page-bar">
       {preset.pages.map((p, i) => (
-        <button key={p.id} className={`tab ${i === pageIdx ? "on" : ""}`} onClick={() => go(i)} onDoubleClick={() => setRenaming(i)}
-          title={p.folder ? "폴더 페이지: 키의 「폴더 열기」로 들어가고 「뒤로」로 나와요" : "◀ ▶ 키로 넘기는 페이지"}>
+        <button key={p.id} data-tab={i}
+          className={`tab ${i === pageIdx ? "on" : ""} ${dragging?.from === i ? "lifted" : ""} ${dragging && dragging.to === i && dragging.from !== i ? (dragging.to < dragging.from ? "drop-before" : "drop-after") : ""}`}
+          onClick={() => !justDragged.current && go(i)} onDoubleClick={() => setRenaming(i)}
+          onPointerDown={(e) => startHold(i, e)} onPointerUp={cancelHold} onPointerLeave={() => !dragging && cancelHold()}
+          title={`${p.folder ? "폴더 페이지: 키의 「폴더 열기」로 들어가고 「뒤로」로 나와요" : "◀ ▶ 키로 넘기는 페이지"} · 길게 누르고 끌면 순서를 바꿔요`}>
           {p.folder ? "📁 " : ""}
           {renaming === i ? (
             <input autoFocus defaultValue={p.name}

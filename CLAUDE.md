@@ -44,7 +44,9 @@ hardware/   PCB 거버·3D 출력·아크릴 파일과 그걸 만든 파이썬 �
 - 세팅 파일: `%APPDATA%\lab.kivo.deck\store.json` + `media\`(이미지·GIF·소리)
 - 데이터: OS별 프리셋 3칸(`slots`) → 페이지(폴더 포함) → 키 15 / 노브 2 / 페이더 2. 이 PC OS의 사용 칸이 비면 다른 OS의 프리셋을 빌려 쓰고, 그 OS 전용 기능은 앱과 보드 화면에 "사용 불가"로 그림 (`model.ts` `resolvePreset`)
 - 프리셋은 앱에서만 고르고 고침. 보드에는 "보드에 적용"(또는 연결될 때 해시가 다르면 자동)으로 **번들**을 보냄 (`bundle.ts`, `sync.ts`)
-- 기능 목록은 `src/catalog.ts` 한 곳: `hid()` = 보드가 직접 실행(앱 없어도 동작), `run()` = 앱이 실행(`src-tauri/src/actions.rs`의 `Op`). 프로그램별 기능은 `APP_PACKS`에 팩을 추가 (지금 Photoshop·OBS)
+- 기능 목록은 `src/catalog.ts` 한 곳: `hid()` = 보드가 직접 실행(앱 없어도 동작), `run()` = 앱이 실행(`src-tauri/src/actions.rs`의 `Op`). 프로그램별 기능은 `APP_PACKS`에 팩을 추가 (Photoshop·OBS·Premiere Pro·Figma·Claude·ChatGPT·DeepSeek 하네스·Steam·Ollama·VS Code·Antigravity·ComfyUI). 팩 도우미: `shortcut`(OS별 키 `{windows, mac}` 가능)·`shortcutDial`·`launch`(이름으로 설치된 앱 열기)·`prompt`(AI 앱에 글 보내기)·`openUrl`·`comfyApi`(ComfyUI 서버 HTTP)
+- **확실하지 않은 단축키는 넣지 않는다**(공식 문서 없으면 열기·질문 보내기만). 설치된 앱 찾기는 시작 메뉴 .lnk + `Get-StartApps`(Store 앱은 `shell:AppsFolder\AppID`로 엶)
+- 소리 출력/입력 장치 바꾸기는 Windows 전용(`audio_device.rs`, 비공개 IPolicyConfig COM). Mac은 아직 미지원
 - 화면 그리기는 `render.ts` 하나로 앱 미리보기와 보드 JPEG/GIF를 똑같이 만듦. 영상 → GIF 변환·GIF 디코드는 `media.ts`(gifenc·gifuct-js)
 - Rust: `device.rs`(포트 찾기·번들 전송) `runtime.rs`(act/fader → 실행, 앞 프로그램 감지로 페이지 자동 전환) `actions.rs`(enigo 키 입력·열기) `audio.rs`(Windows Core Audio / Mac osascript) `obs.rs`(obws) `store.rs` `system.rs`(CPU·메모리) `gpu.rs`(GPU별 사용률: Windows PDH "GPU Engine" + DXGI 이름, id = 어댑터 LUID) `apps.rs`(설치된 앱: 시작 메뉴 .lnk와 대상 exe / Mac .app, 지금 소리 나는 앱)
 - 실시간 사용률 키(CPU·메모리·GPU)는 표시 모양 5가지(숫자·원형·반원 게이지·막대·그래프)와 GPU 선택(`gpuId`, 비우면 가장 바쁜 GPU)을 가짐. 앱이 1초마다 타일로 그려 보드에 보냄

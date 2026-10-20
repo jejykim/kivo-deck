@@ -26,6 +26,12 @@ pub enum Op {
     },
     Timer { cmd: String },
     Seq { steps: Vec<Op> },
+    LaunchApp { names: Vec<String> },     // open an installed app by name (or bring it to the front)
+    Terminal { command: String },         // run a command in a new terminal window
+    Exec { program: String, args: Vec<String> }, // run a program without a window
+    AudioDevice { id: String },           // make this the default sound device
+    AudioNext { input: bool },            // next output (or input) device
+    Http { method: String, url: String, body: Option<String> }, // e.g. ComfyUI /interrupt
 }
 
 pub enum Job {
@@ -96,6 +102,12 @@ fn run_op(app: &AppHandle, mut enigo: Option<&mut Enigo>, op: &Op) -> Result<(),
         Op::Obs { req, arg } => obs::request(req, arg.as_deref().unwrap_or(""), None),
         Op::Sound { media_id } => app.emit("play-sound", media_id).map_err(|e| e.to_string()),
         Op::Timer { cmd } => app.emit("timer", cmd).map_err(|e| e.to_string()),
+        Op::LaunchApp { names } => launch_app(names),
+        Op::Terminal { command } => terminal(command),
+        Op::Exec { program, args } => std::process::Command::new(program).args(args).spawn().map(|_| ()).map_err(|e| format!("{program} 실행 실패: {e}")),
+        Op::AudioDevice { id } => crate::audio_device::set_default(id),
+        Op::AudioNext { input } => crate::audio_device::next(*input),
+        Op::Http { method, url, body } => http(method, url, body.as_deref()),
         Op::Seq { steps } => {
             for s in steps {
                 run_op(app, enigo.as_deref_mut(), s)?;
@@ -124,6 +136,10 @@ fn open(target: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
+        // Store apps from the Start menu list
+        if target.starts_with("shell:") {
+            return std::process::Command::new("explorer.exe").arg(target).spawn().map(|_| ()).map_err(|e| e.to_string());
+        }
         // `start` resolves programs, files, folders and URLs the same way Explorer does
         std::process::Command::new("cmd")
             .args(["/C", "start", "", target])
@@ -135,6 +151,46 @@ fn open(target: &str) -> Result<(), String> {
     #[cfg(not(target_os = "windows"))]
     {
         std::process::Command::new("open").arg(target).spawn().map(|_| ()).map_err(|e| e.to_string())
+    }
+}
+
+fn launch_app(names: &[String]) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let path = crate::apps::find(names).ok_or_else(|| format!("{}을(를) 찾을 수 없어요. 설치되어 있는지 확인해 주세요", names.first().map(String::as_str).unwrap_or("앱")))?;
+        open(&path)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        for n in names {
+            if std::process::Command::new("open").args(["-a", n]).status().map(|s| s.success()).unwrap_or(false) {
+                return Ok(());
+            }
+        }
+        Err(format!("{}을(를) 찾을 수 없어요", names.first().map(String::as_str).unwrap_or("앱")))
+    }
+}
+
+fn http(method: &str, url: &str, body: Option<&str>) -> Result<(), String> {
+    let agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(5))).build().new_agent();
+    let r = if method.eq_ignore_ascii_case("GET") {
+        agent.get(url).call()
+    } else {
+        agent.post(url).header("Content-Type", "application/json").send(body.unwrap_or("{}"))
+    };
+    r.map(|_| ()).map_err(|e| format!("{url} 요청 실패: {e}"))
+}
+
+fn terminal(command: &str) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd").args(["/C", "start", "", "cmd", "/K", command]).spawn().map(|_| ()).map_err(|e| e.to_string())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let escaped = command.replace('\\', "\\\\").replace('"', "\\\"");
+        let script = format!("tell application \"Terminal\"\nactivate\ndo script \"{escaped}\"\nend tell");
+        std::process::Command::new("osascript").args(["-e", &script]).spawn().map(|_| ()).map_err(|e| e.to_string())
     }
 }
 

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { actionDef, actionIcon, actionName, actionOS, osOnlyText, supported, type ParamDef, type Slot } from "../catalog";
 import { hotkeyFromEvent, prettyHotkey } from "../keys";
@@ -57,7 +58,7 @@ export function ActionSlot({ label, value, onChange, accept, previewOS, hint, on
       {value && def?.params?.map((p) => (
         <ParamField key={p.key} def={p} value={value.params[p.key]} os={previewOS}
           pages={preset?.pages ?? []}
-          onChange={(v) => onChange({ ...value, params: { ...value.params, [p.key]: v } })} />
+          onChange={(v, extra) => onChange({ ...value, params: { ...value.params, [p.key]: v, ...extra } })} />
       ))}
       {value && def?.needsObs && !store.settings.obs.host && <p className="warn-text small">설정(⚙)에서 OBS 연결 정보를 넣어 주세요.</p>}
     </div>
@@ -65,7 +66,7 @@ export function ActionSlot({ label, value, onChange, accept, previewOS, hint, on
 }
 
 function ParamField({ def, value, onChange, os, pages }: {
-  def: ParamDef; value: any; onChange: (v: any) => void; os: OS; pages: { id: string; name: string; folder: boolean }[];
+  def: ParamDef; value: any; onChange: (v: any, extra?: Record<string, any>) => void; os: OS; pages: { id: string; name: string; folder: boolean }[];
 }) {
   const macros = useApp((s) => s.store.macros);
   const media = useApp((s) => s.store.media);
@@ -140,6 +141,15 @@ function ParamField({ def, value, onChange, os, pages }: {
             <button onClick={() => pickFile(async (f) => onChange((await importAudio(f[0])).id), "audio/*")}>소리 파일 고르기…</button>
           </div></div>
       );
+    case "bool":
+      return (
+        <label className="check">
+          <input type="checkbox" checked={value !== false} onChange={(e) => onChange(e.target.checked)} /> {def.label}
+        </label>
+      );
+    case "audioOut":
+    case "audioIn":
+      return <AudioDeviceField label={def.label} input={def.kind === "audioIn"} value={value} onChange={onChange} />;
     case "number":
       return <label className="field"><span>{def.label}</span><input type="number" value={value ?? 0} onChange={(e) => onChange(Number(e.target.value))} /></label>;
     default:
@@ -175,6 +185,31 @@ export function HotkeyField({ label, value, onChange, os }: { label: string; val
         )}
         <button className="ghost small" onClick={() => setManual((m) => !m)}>{manual ? "녹화" : "직접 입력"}</button>
       </div>
+    </div>
+  );
+}
+
+interface AudioDevice { id: string; name: string; default: boolean }
+
+// Sound devices of this PC; the name is stored too so the key can show it
+function AudioDeviceField({ label, input, value, onChange }: { label: string; input: boolean; value: string | undefined; onChange: (v: any, extra?: Record<string, any>) => void }) {
+  const [list, setList] = useState<AudioDevice[] | null>(null);
+  const load = () => invoke<AudioDevice[]>("audio_devices", { input }).then(setList).catch(() => setList([]));
+  useEffect(() => { load(); }, [input]);
+  return (
+    <div className="field"><span>{label}</span>
+      <div className="row">
+        <select className="grow" value={value ?? ""} onChange={(e) => {
+          const d = list?.find((x) => x.id === e.target.value);
+          onChange(e.target.value, { name: d?.name ?? "" });
+        }}>
+          <option value="">{list == null ? "장치를 읽는 중…" : list.length ? "장치를 고르세요" : "장치를 찾지 못했어요 (Windows에서만 지원)"}</option>
+          {list?.map((d) => <option key={d.id} value={d.id}>{d.name}{d.default ? " (지금 사용 중)" : ""}</option>)}
+          {value && list && !list.some((d) => d.id === value) && <option value={value}>(연결되지 않은 장치)</option>}
+        </select>
+        <button className="ghost small" onClick={load} title="다시 읽기">↻</button>
+      </div>
+      <p className="muted small">토글 키로 만들면 한 번은 이 장치, 다시 누르면 다른 장치로 오갈 수 있어요.</p>
     </div>
   );
 }
