@@ -1,9 +1,9 @@
 # 개발 순서
 
 ## 0. 준비 (부품 도착 전)
-- [ ] Windows에 Git, VS Code, PlatformIO(확장 또는 `pip install platformio`) 설치
-- [ ] GitHub 저장소 만들고 이 폴더 올리기
-- [ ] `firmware`를 PlatformIO로 빌드 성공 (`pio run`)
+- [x] Windows에 Git, VS Code, PlatformIO 설치 (pio는 `F:\pio_env`), Node · Rust · MSVC Build Tools
+- [~] 로컬 git 저장소 만듦 — GitHub에 올리기는 남음
+- [x] `firmware`를 PlatformIO로 빌드 성공 (`pio run`)
 
 ## 1. 펌웨어 1단계 — ESP32 단독 테스트 (납땜 전)
 - [ ] DevKit의 USB 포트로 업로드, PC가 "Kivo Deck" 키보드 + COM 포트로 인식
@@ -15,7 +15,7 @@
 - [ ] 노브 1 볼륨/음소거, 노브 2·페이더 값이 시리얼로 찍힘 (방향·0~1000 범위)
 
 ## 3. PC 앱 기초 (Tauri)
-- [ ] 트레이 앱, 기기 자동 연결(USB VID/PID 또는 `hello` 응답으로 찾기)
+- [~] 기기 자동 연결(VID 0x303A + `hello`) · 이벤트 모니터 화면 완료 — 트레이 아이콘은 남음
 - [ ] 페이더 → 시스템 볼륨 / 앱별 볼륨(Windows), 노브 2 → 지정 동작
 - [ ] 키 동작 편집 화면 (단축키, 프로그램 실행, OBS)
 

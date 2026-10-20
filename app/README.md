@@ -1,6 +1,6 @@
-# Kivo Deck PC 앱 (계획)
+# Kivo Deck PC 앱
 
-아직 코드는 없어요. Claude Code에서 아래 계획으로 시작하면 돼요.
+지금은 **기기 자동 연결 + 이벤트 모니터** 화면까지 있어요. 실행: `npm install` 한 번, 그다음 `npm run tauri dev`.
 
 ## 기술
 - **Tauri 2** (Rust 백엔드 + 웹 프런트엔드). Windows 먼저, Mac은 같은 코드로 나중에
@@ -9,10 +9,10 @@
 - 키 입력·프로그램 실행: Rust `enigo` 등. 시스템 볼륨: Windows Core Audio(`windows` 크레이트), 앱별 볼륨은 `IAudioSessionManager2`
 - OBS: obs-websocket v5 (OBS 28 이상 내장)
 
-## 처음 할 일 (Windows)
-1. Node.js LTS, Rust(rustup), "Microsoft C++ Build Tools" 설치 — Tauri 공식 Prerequisites 문서 순서대로
-2. `npm create tauri-app@latest` 로 이 폴더(app/)에 프로젝트 생성
-3. 시리얼로 기기에 연결해 `docs/protocol.md`의 이벤트를 화면에 그대로 찍는 것부터
+## 구조
+- `src-tauri/src/device.rs` — USB 시리얼 포트 찾기·연결 유지·JSON 줄 주고받기
+- `src-tauri/src/lib.rs` — Tauri 시작, `send_command` 명령
+- `src/main.ts`, `index.html`, `src/styles.css` — 모니터 화면
 
 ## 화면 구성 (초안)
 - 트레이 아이콘: 연결 상태, 설정 열기, 종료

@@ -1,0 +1,48 @@
+:root {
+  --bg: #f4f4f6;
+  --panel: #ffffff;
+  --text: #1d1d22;
+  --muted: #74747f;
+  --line: #e2e2e8;
+  --key: #2a2d3a;
+  --accent: #3b82f6;
+  --ok: #16a34a;
+  --bad: #b45309;
+  font-family: "Pretendard", "Malgun Gothic", system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #15161a; --panel: #1e2026; --text: #ececf1; --muted: #9a9aa6; --line: #2e3038; --key: #343849; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 16px; display: flex; flex-direction: column; gap: 12px; height: 100vh; }
+header { display: flex; align-items: center; gap: 12px; }
+h1 { font-size: 18px; margin: 0; }
+.status { padding: 3px 10px; border-radius: 99px; font-size: 12px; color: #fff; }
+.status.on { background: var(--ok); }
+.status.off { background: var(--bad); }
+main { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; min-height: 0; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 0; }
+.keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.key {
+  aspect-ratio: 96 / 106.7; background: var(--key); color: #fff; border-radius: 8px;
+  display: grid; place-items: center; font-weight: 600; transition: background 0.05s;
+}
+.key.down { background: var(--accent); }
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.knob, .fader { display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
+.knob.down { border-color: var(--accent); }
+.label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; margin-left: auto; min-width: 3ch; text-align: right; }
+.track { flex: 1; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.fill { height: 100%; width: 0; background: var(--accent); }
+.tools { display: flex; flex-direction: column; gap: 8px; }
+.buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+button { border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
+button:hover { border-color: var(--accent); }
+pre { flex: 1; margin: 0; overflow: auto; font-size: 12px; line-height: 1.5; }
+pre .out { color: var(--accent); }
+pre .err { color: #dc2626; }
+pre .sys { color: var(--muted); }
