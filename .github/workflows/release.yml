@@ -65,7 +65,8 @@ jobs:
           # named after FW_VERSION, not the tag: the app compares it with the board's version
           fw=$(sed -n 's/^#define FW_VERSION "\(.*\)"/\1/p' firmware/src/config.h)
           cp firmware/.pio/build/kivo-deck/firmware.bin kivo-deck-firmware-$fw.bin
-          for i in 1 2 3 4 5 6 7 8 9 10; do
-            gh release upload ${{ github.ref_name }} kivo-deck-firmware-$fw.bin --clobber && break
+          for i in $(seq 1 60); do
+            gh release upload ${{ github.ref_name }} kivo-deck-firmware-$fw.bin --clobber && exit 0
             sleep 30   # the app job creates the release
           done
+          exit 1
