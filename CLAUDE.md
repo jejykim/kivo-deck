@@ -29,6 +29,7 @@ hardware/   PCB 거버·3D 출력·아크릴 파일과 그걸 만든 파이썬 �
 - USB 모드: TinyUSB(USB-OTG)로 HID 키보드 + Consumer Control + CDC 시리얼을 동시에 씀 (`ARDUINO_USB_MODE=0`, `ARDUINO_USB_CDC_ON_BOOT=1`)
 - 처음 업로드나 업로드가 안 될 때: ESP32의 BOOT 버튼을 누른 채 RST를 눌렀다 떼면 다운로드 모드. 업로드 후 COM 포트 번호가 바뀔 수 있음
 - 납땜 전에는 DevKit의 "USB" 표시 포트(네이티브 USB)로 테스트할 수 있음. 화면·노브 없이도 시리얼 `{"cmd":"hello"}` 응답으로 확인 가능. 이때 페이더 핀이 떠 있어서 `fader` 이벤트가 마구 찍히는 건 정상
+- 페이더를 납땜하면 config.h `FADERS_INSTALLED`를 1로. 0이면 `fader` 이벤트를 보내지 않음(떠 있는 핀의 값이 PC 볼륨을 움직이는 걸 막음)
 - 터치는 보정 전까지 꺼져 있음(첫 부팅 화면에서 노브 1을 누르면 보정 시작)
 
 ### 실물로 확인해야 하는 가정 (추측값)

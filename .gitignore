@@ -13,6 +13,7 @@ Thumbs.db
 
 # build logs
 firmware/build.log
+firmware/upload.log
 
 # app logs
 app/*.log

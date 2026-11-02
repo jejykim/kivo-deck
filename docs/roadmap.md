@@ -6,9 +6,9 @@
 - [x] `firmware`를 PlatformIO로 빌드 성공 (`pio run`)
 
 ## 1. 펌웨어 1단계 — ESP32 단독 테스트 (납땜 전)
-- [ ] DevKit의 USB 포트로 업로드, PC가 "Kivo Deck" 키보드 + COM 포트로 인식
-- [ ] 시리얼에 `{"cmd":"hello"}` → `hello` 응답, PC 앱이 자동 연결
-- [ ] PC 앱에서 "보드에 적용" → 번들 전송 성공(`ok`), 다시 연결해도 `bundle` 해시가 같음
+- [x] 뒷면 USB-C로 업로드, PC가 키보드 + Consumer Control + COM 포트로 인식
+- [x] 시리얼에 `{"cmd":"hello"}` → `hello` 응답, PC 앱이 자동 연결
+- [~] PC 앱이 연결 시 번들 전송 → 보드에 키 화면 표시 확인 — 다시 연결해도 `bundle` 해시가 같은지는 남음
 
 ## 2. 조립 후 입력 확인
 - [ ] 화면 15칸 표시, 방향(`DISPLAY_ROTATION`)·색 확인, 페이지 JPEG가 앱 미리보기와 같은지

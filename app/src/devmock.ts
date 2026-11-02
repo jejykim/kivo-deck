@@ -8,6 +8,7 @@ export function installDevMock() {
   mockIPC((cmd, args: any) => {
     switch (cmd) {
       case "host_os": return "windows";
+      case "device_status": return { connected: false, port: null, hello: null };
       case "load_store": return store;
       case "save_store": store = args.json; return null;
       case "save_media": files.set(args.name, args.b64); return null;

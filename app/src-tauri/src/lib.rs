@@ -91,6 +91,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             device::send_command,
+            device::device_status,
             device::push_bundle,
             runtime::set_runtime,
             store::host_os,

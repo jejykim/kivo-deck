@@ -130,8 +130,10 @@ void loop() {
       if (enc[i].isDown()) turnedWhilePressed[i] = true;
       if (!deck::wakeIfSleeping()) deck::knobTurn(i, d, enc[i].isDown());
     }
+#if FADERS_INSTALLED
     int v;
     if (fader[i].poll(v)) pc::event("fader", i, "value", v);   // faders are handled by the PC app
+#endif
   }
 
   pc::poll();

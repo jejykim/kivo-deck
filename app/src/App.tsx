@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { loadStore, useApp, type DeviceInfo } from "./state";
 import { applyToDevice, scheduleDraft, syncRuntime, useSync } from "./sync";
@@ -31,6 +32,14 @@ function onDeviceEvent(e: DeviceEvent) {
   if (e.ev !== "fader") s.addLog(JSON.stringify(e), e.ev === "error" ? "err" : "in");
 }
 
+function onDeviceStatus(info: DeviceInfo) {
+  const s = useApp.getState();
+  s.set({ device: info, pressed: new Set(), devicePage: 0 });
+  s.addLog(info.connected ? `연결됨 ${info.port} ${JSON.stringify(info.hello)}` : "연결 끊김", "sys");
+  // before the presets are loaded this would upload the default preset; the check after loading covers it
+  if (info.connected && s.loaded) applyToDevice();
+}
+
 export function App() {
   const loaded = useApp((s) => s.loaded);
   const [splash, setSplash] = useState(true);
@@ -44,15 +53,14 @@ export function App() {
       // keep the logo up for at least 1.6 s
       setTimeout(() => setSplash(false), Math.max(0, 1600 - (Date.now() - t0)));
       checkForUpdate();
+      // the device may have connected before anything was listening
+      await Promise.all(un);
+      const info = await invoke<DeviceInfo>("device_status");
+      if (info.connected) onDeviceStatus(info);
     });
     const un = [
       listen<DeviceEvent>("device-event", (m) => onDeviceEvent(m.payload)),
-      listen<DeviceInfo>("device-status", (m) => {
-        const s = useApp.getState();
-        s.set({ device: m.payload, pressed: new Set(), devicePage: 0 });
-        s.addLog(m.payload.connected ? `연결됨 ${m.payload.port} ${JSON.stringify(m.payload.hello)}` : "연결 끊김", "sys");
-        if (m.payload.connected) applyToDevice();
-      }),
+      listen<DeviceInfo>("device-status", (m) => onDeviceStatus(m.payload)),
       listen<{ done: number; total: number }>("push-progress", (m) =>
         useSync.setState({ progress: m.payload.total ? m.payload.done / m.payload.total : 0 })),
       listen<string>("play-sound", (m) => playSound(m.payload)),

@@ -37,9 +37,10 @@ enum Msg {
 #[derive(Default, Clone)]
 pub struct DeviceState {
     tx: Arc<Mutex<Option<Sender<Msg>>>>,
+    status: Arc<Mutex<Status>>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Default, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {
     pub connected: bool,
@@ -50,6 +51,11 @@ pub struct Status {
 impl DeviceState {
     pub fn send(&self, line: String) -> Result<(), String> {
         self.post(Msg::Line(line))
+    }
+    // The web side may not be listening yet when the device connects, so it also asks (device_status)
+    fn set_status(&self, app: &AppHandle, status: Status) {
+        *self.status.lock().unwrap() = status.clone();
+        let _ = app.emit("device-status", status);
     }
     fn post(&self, m: Msg) -> Result<(), String> {
         match self.tx.lock().unwrap().as_ref() {
@@ -64,10 +70,10 @@ pub fn start(app: AppHandle, state: DeviceState, rt: RuntimeState) {
         if let Some((name, port, hello)) = find_device() {
             let (tx, rx) = channel();
             *state.tx.lock().unwrap() = Some(tx);
-            let _ = app.emit("device-status", Status { connected: true, port: Some(name.clone()), hello: Some(hello) });
+            state.set_status(&app, Status { connected: true, port: Some(name.clone()), hello: Some(hello) });
             Link::new(&app, &rt, port).map(|mut l| l.run(rx));
             *state.tx.lock().unwrap() = None;
-            let _ = app.emit("device-status", Status { connected: false, port: None, hello: None });
+            state.set_status(&app, Status::default());
         }
         thread::sleep(Duration::from_secs(1));
     });
@@ -225,6 +231,11 @@ impl<'a> Link<'a> {
         }
         self.request(&json!({ "cmd": "bundle.end", "hash": job.hash }).to_string())
     }
+}
+
+#[tauri::command]
+pub fn device_status(state: tauri::State<DeviceState>) -> Status {
+    state.status.lock().unwrap().clone()
 }
 
 #[tauri::command]
