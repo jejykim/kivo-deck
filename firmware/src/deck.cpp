@@ -56,6 +56,7 @@ static bool longFired = false;
 
 static bool saverOn = false;
 static uint32_t lastInput = 0;
+static const char *notice = nullptr;
 
 struct Gif {
   AnimatedGIF *g = nullptr;
@@ -167,6 +168,12 @@ static void startAnimations() {
 void deck::drawPage() {
   stopAnimations();
   if (saverOn) return;
+  if (notice) {
+    lcd.fillScreen(TFT_BLACK);
+    lcd.setTextColor(TFT_WHITE); lcd.setTextDatum(textdatum_t::middle_center); lcd.setTextSize(2);
+    lcd.drawString(notice, lcd.width() / 2, lcd.height() / 2);
+    return;
+  }
   if (!loaded) {
     lcd.fillScreen(TFT_BLACK);
     for (int k = 0; k < KEY_COUNT; k++) drawDefaultKey(k, false);
@@ -180,11 +187,13 @@ void deck::drawPage() {
   startAnimations();
 }
 
+void deck::setNotice(const char *text) { notice = text; }
+
 void deck::drawTile(int p, int k, const uint8_t *jpg, size_t len) {
   if (!loaded || p != cur || k < 0 || k >= KEY_COUNT) return;
   liveTilePage = cur;
   liveTile[k].set(jpg, len);
-  if (!saverOn && !isOn(cur, k)) {
+  if (!saverOn && !notice && !isOn(cur, k)) {
     drawKey(k);
     if (k == downKey) drawPressed(k);
   }

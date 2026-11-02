@@ -1,5 +1,5 @@
 #pragma once
-#define FW_VERSION "0.2.0"
+#define FW_VERSION "0.3.0"
 
 // Screen: 480 x 320 landscape, 5 x 3 keys. If the picture is upside down or mirrored after
 // assembly, change DISPLAY_ROTATION (0-3) and redo the touch calibration.
@@ -24,6 +24,9 @@
 #define DOUBLE_TAP_MS 250
 // Serial: longest command line (file.data chunks and live tiles are base64)
 #define RX_LINE_MAX 16384
+// Firmware update: give up when the app stops sending, roll back when no app says hello to a new version
+#define OTA_DATA_TIMEOUT_MS 15000
+#define OTA_CONFIRM_TIMEOUT_MS 60000
 // Animated GIFs played at the same time on one page
 #define MAX_GIFS 6
 // Folder pages that can be opened inside each other

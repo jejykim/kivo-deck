@@ -16,6 +16,7 @@ namespace deck {
   int page();
   void gotoPage(int n, bool fromApp);
   void drawPage();
+  void setNotice(const char *text);  // shown instead of the keys until cleared with nullptr
   void stopAnimations();
   void drawTile(int page, int key, const uint8_t *jpg, size_t len);  // live key from the app
 
@@ -42,6 +43,7 @@ namespace hidout {
 namespace pc {
   void begin(const char *deviceId);
   void poll();
+  bool updating();              // a firmware update is being received
   void send(const char *json);
   void event(const char *ev, int id, const char *field, int value);
   void act(const char *src, int id, int page, const char *kind, int n);

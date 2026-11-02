@@ -4,6 +4,7 @@ import { enable, disable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { useApp } from "../state";
 import { Modal } from "./Modal";
 import { checkForUpdate, UpdateDialog, useUpdate } from "./UpdateButton";
+import { FirmwareDialog } from "./FirmwareUpdate";
 
 // Makes the OS login item match the setting. Skipped in dev builds so the dev exe is never registered.
 export async function syncAutostart() {
@@ -24,6 +25,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [version, setVersion] = useState("");
   const [checking, setChecking] = useState(false);
   const [showUpdate, setShowUpdate] = useState(false);
+  const [showFirmware, setShowFirmware] = useState(false);
+  const fw = useApp((s) => s.device.hello?.fw);
   const upd = useUpdate();
 
   useEffect(() => { getVersion().then(setVersion); }, []);
@@ -56,6 +59,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <input type="checkbox" checked={settings.autoSwitch} onChange={(e) => set((s) => { s.autoSwitch = e.target.checked; })} />
         앞에 있는 프로그램에 따라 페이지 자동 전환 (페이지 메뉴에서 규칙 지정)
       </label>
+      <div className="row">
+        <span>펌웨어 {fw ?? "(보드 없음)"}</span>
+        <div className="spacer" />
+        <button onClick={() => setShowFirmware(true)}>펌웨어 업데이트</button>
+      </div>
+      {showFirmware && <FirmwareDialog onClose={() => setShowFirmware(false)} />}
 
       <h4>OBS Studio</h4>
       <div className="row">

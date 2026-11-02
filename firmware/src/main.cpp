@@ -43,6 +43,7 @@ void calibrateTouch() {
   lcd.setTouchCalibrate(cal);
   touchReady = true;
   pc::send("{\"ev\":\"calibrated\"}");
+  deck::setNotice(nullptr);
   deck::drawPage();
 }
 
@@ -91,13 +92,14 @@ void setup() {
   } else if (both) {
     calibrateTouch();
   } else {
-    lcd.fillScreen(TFT_BLACK);
-    lcd.setTextColor(TFT_WHITE); lcd.setTextDatum(textdatum_t::middle_center); lcd.setTextSize(2);
-    lcd.drawString("Press knob 1 to calibrate touch", lcd.width() / 2, lcd.height() / 2);
+    deck::setNotice("Press knob 1 to calibrate touch");   // stays up when the app sends its keys
+    deck::drawPage();
   }
 }
 
 void loop() {
+  if (pc::updating()) { pc::poll(); return; }
+
   // touch -> key press / release (sliding to another key = release + press)
   int32_t tx, ty;
   int k = (touchReady && lcd.getTouch(&tx, &ty)) ? keyAt(tx, ty) : -1;

@@ -34,6 +34,7 @@ export function installDevMock() {
       case "plugin:updater|check": return null;
       case "plugin:app|version": return "0.1.0-dev";
       case "plugin:dialog|ask": case "plugin:dialog|confirm": return true;
+      case "firmware_latest": return { version: "0.4.0", url: "https://example.invalid/kivo-deck-firmware-0.4.0.bin", size: 536192 };
       case "send_command": throw "기기가 연결되어 있지 않아요";
       default: return null;
     }

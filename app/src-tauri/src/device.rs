@@ -32,6 +32,7 @@ pub struct PushJob {
 enum Msg {
     Line(String),
     Push(PushJob, Sender<Result<(), String>>),
+    Firmware(Vec<u8>, Sender<Result<(), String>>),
 }
 
 #[derive(Default, Clone)]
@@ -186,6 +187,15 @@ impl<'a> Link<'a> {
                             return;
                         }
                     }
+                    Msg::Firmware(image, reply) => {
+                        let r = self.flash(&image);
+                        let done = r.is_ok();
+                        let gone = r.as_ref().err().is_some_and(|e| e == "disconnected");
+                        let _ = reply.send(r);
+                        if done || gone {
+                            return; // the device restarts; start() finds it again
+                        }
+                    }
                 }
             }
             match self.read() {
@@ -231,6 +241,17 @@ impl<'a> Link<'a> {
         }
         self.request(&json!({ "cmd": "bundle.end", "hash": job.hash }).to_string())
     }
+
+    fn flash(&mut self, image: &[u8]) -> Result<(), String> {
+        self.request(&json!({ "cmd": "ota.begin", "size": image.len() }).to_string())?;
+        let mut done = 0usize;
+        for chunk in image.chunks(CHUNK) {
+            self.request(&json!({ "cmd": "ota.data", "d": STANDARD.encode(chunk) }).to_string())?;
+            done += chunk.len();
+            let _ = self.app.emit("firmware-progress", json!({ "done": done, "total": image.len() }));
+        }
+        self.request(r#"{"cmd":"ota.end"}"#)
+    }
 }
 
 #[tauri::command]
@@ -257,4 +278,90 @@ pub async fn push_bundle(state: tauri::State<'_, DeviceState>, files: Vec<Bundle
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| if e == "disconnected" { "전송 중에 기기 연결이 끊겼어요".into() } else { e })
+}
+
+// ------------------------------------------------------------------ firmware update
+const RELEASE_API: &str = "https://api.github.com/repos/jejykim/kivo-deck/releases/latest";
+const FIRMWARE_TAG: &[u8] = b"KIVO_DECK_FW=";
+const FIRMWARE_MAX: usize = 0x300000; // app0 / app1 in firmware/partitions.csv
+const ESP32S3_CHIP_ID: u16 = 9;
+
+#[derive(Serialize)]
+pub struct FirmwareRelease {
+    version: String,
+    url: String,
+    size: u64,
+}
+
+// The version inside the file, or why it must not go on the board
+fn firmware_version(image: &[u8]) -> Result<String, String> {
+    if image.len() > FIRMWARE_MAX {
+        return Err("펌웨어 칸보다 큰 파일이에요".into());
+    }
+    if image.len() < 16 || image[0] != 0xE9 || u16::from_le_bytes([image[12], image[13]]) != ESP32S3_CHIP_ID {
+        return Err("ESP32-S3 펌웨어 파일이 아니에요".into());
+    }
+    let start = image.windows(FIRMWARE_TAG.len()).position(|w| w == FIRMWARE_TAG)
+        .ok_or("Kivo Deck 펌웨어가 아니거나 0.3.0보다 오래된 파일이에요")? + FIRMWARE_TAG.len();
+    let end = image[start..].iter().position(|b| *b == 0).ok_or("펌웨어 파일이 손상됐어요")?;
+    String::from_utf8(image[start..start + end].to_vec()).map_err(|_| "펌웨어 파일이 손상됐어요".into())
+}
+
+fn latest_release() -> Result<Option<FirmwareRelease>, String> {
+    let agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(15))).http_status_as_error(false).build().new_agent();
+    let mut res = agent.get(RELEASE_API).header("User-Agent", "kivo-deck").call().map_err(|e| e.to_string())?;
+    if res.status() == 404 {
+        return Ok(None); // no public release yet
+    }
+    if !res.status().is_success() {
+        return Err(format!("GitHub 응답 {}", res.status()));
+    }
+    let v: Value = serde_json::from_str(&res.body_mut().read_to_string().map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    let Some(assets) = v["assets"].as_array() else { return Ok(None) };
+    Ok(assets.iter().find_map(|a| {
+        let version = a["name"].as_str()?.strip_prefix("kivo-deck-firmware-")?.strip_suffix(".bin")?;
+        Some(FirmwareRelease {
+            version: version.to_string(),
+            url: a["browser_download_url"].as_str()?.to_string(),
+            size: a["size"].as_u64()?,
+        })
+    }))
+}
+
+fn download(url: &str) -> Result<Vec<u8>, String> {
+    let agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(120))).build().new_agent();
+    let mut res = agent.get(url).header("User-Agent", "kivo-deck").call().map_err(|e| e.to_string())?;
+    res.body_mut().with_config().limit(FIRMWARE_MAX as u64 + 1).read_to_vec().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn firmware_latest() -> Result<Option<FirmwareRelease>, String> {
+    tauri::async_runtime::spawn_blocking(latest_release).await.map_err(|e| e.to_string())?
+}
+
+// Checks a file the user picked and returns the firmware version inside it
+#[tauri::command]
+pub fn firmware_file_version(path: String) -> Result<String, String> {
+    firmware_version(&std::fs::read(path).map_err(|e| e.to_string())?)
+}
+
+// Sends a picked file (path) or a release file (url); resolves when the device accepted it and is
+// restarting. The web side then watches hello.fw to see that the new version stayed.
+#[tauri::command]
+pub async fn firmware_install(state: tauri::State<'_, DeviceState>, path: Option<String>, url: Option<String>) -> Result<String, String> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let image = match (path, url) {
+            (Some(p), _) => std::fs::read(p).map_err(|e| e.to_string())?,
+            (None, Some(u)) => download(&u)?,
+            _ => return Err("펌웨어 파일이 없어요".to_string()),
+        };
+        let version = firmware_version(&image)?;
+        let (tx, rx) = channel();
+        state.post(Msg::Firmware(image, tx))?;
+        rx.recv().unwrap_or(Err("disconnected".into())).map_err(|e| if e == "disconnected" { "전송 중에 기기 연결이 끊겼어요".into() } else { e })?;
+        Ok(version)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

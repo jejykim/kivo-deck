@@ -11,6 +11,7 @@ import { LogPanel } from "./components/LogPanel";
 import { Editor } from "./components/Editor";
 import { Library } from "./components/Library";
 import { checkForUpdate } from "./components/UpdateButton";
+import { checkFirmware } from "./components/FirmwareUpdate";
 import { syncAutostart } from "./components/SettingsDialog";
 
 type DeviceEvent = { ev: string; id?: number; down?: number; value?: number; n?: number; [k: string]: unknown };
@@ -53,6 +54,7 @@ export function App() {
       // keep the logo up for at least 1.6 s
       setTimeout(() => setSplash(false), Math.max(0, 1600 - (Date.now() - t0)));
       checkForUpdate();
+      checkFirmware();
       // the device may have connected before anything was listening
       await Promise.all(un);
       const info = await invoke<DeviceInfo>("device_status");

@@ -28,9 +28,10 @@ hardware/   PCB 거버·3D 출력·아크릴 파일과 그걸 만든 파이썬 �
 - 보드 파일이 `-DARDUINO_USB_MODE=1`을 기본으로 넣어서 `build_unflags`로 빼 두었음. 지우면 TinyUSB가 아니라 HW CDC 모드로 빌드돼 HID 키보드가 안 됨
 - USB 모드: TinyUSB(USB-OTG)로 HID 키보드 + Consumer Control + CDC 시리얼을 동시에 씀 (`ARDUINO_USB_MODE=0`, `ARDUINO_USB_CDC_ON_BOOT=1`)
 - 처음 업로드나 업로드가 안 될 때: ESP32의 BOOT 버튼을 누른 채 RST를 눌렀다 떼면 다운로드 모드. 업로드 후 COM 포트 번호가 바뀔 수 있음
+- 일반 모드(COM8, SER에 콜론 없음)에서는 esptool 자동 전환이 실패함. 대신 PowerShell `SerialPort`로 포트를 열었다 닫으면 보드가 다운로드 모드(COM7, SER에 콜론 있음)로 넘어간 적이 있음(같은 보드에서 2번). 다운로드 모드에서 빠져나오는 건 esptool `hard_reset`(RTS)으로 안 됐고, 다시 업로드하면 RTC WDT 리셋으로 일반 모드로 돌아옴
 - 납땜 전에는 DevKit의 "USB" 표시 포트(네이티브 USB)로 테스트할 수 있음. 화면·노브 없이도 시리얼 `{"cmd":"hello"}` 응답으로 확인 가능. 이때 페이더 핀이 떠 있어서 `fader` 이벤트가 마구 찍히는 건 정상
 - 페이더를 납땜하면 config.h `FADERS_INSTALLED`를 1로. 0이면 `fader` 이벤트를 보내지 않음(떠 있는 핀의 값이 PC 볼륨을 움직이는 걸 막음)
-- 터치는 보정 전까지 꺼져 있음(첫 부팅 화면에서 노브 1을 누르면 보정 시작)
+- 터치는 보정 전까지 꺼져 있고, 그동안 화면에는 키 대신 보정 안내가 떠 있음(노브 1을 누르면 보정 시작). 값은 NVS에 있어서 펌웨어를 다시 올려도 유지됨
 
 ### 실물로 확인해야 하는 가정 (추측값)
 - `DISPLAY_ROTATION`(config.h): 조립 후 화면이 뒤집혀 보이면 0~3 중 조정하고 터치 보정 다시
@@ -53,7 +54,8 @@ hardware/   PCB 거버·3D 출력·아크릴 파일과 그걸 만든 파이썬 �
 - 실시간 사용률 키(CPU·메모리·GPU)는 표시 모양 5가지(숫자·원형·반원 게이지·막대·그래프)와 GPU 선택(`gpuId`, 비우면 가장 바쁜 GPU)을 가짐. 앱이 1초마다 타일로 그려 보드에 보냄
 - 창을 닫으면 트레이로 숨음. 로그인 시 자동 실행(`--autostart` 인자, 개발 모드에서는 등록 안 함)
 - 업데이트: `tauri-plugin-updater`가 `github.com/jejykim/kivo-deck` 최신 릴리스의 `latest.json`을 확인. 서명 비밀 키는 `%USERPROFILE%\.tauri\kivo-deck.key`(비밀번호 없음, **절대 커밋 금지**), 공개 키는 tauri.conf.json. GitHub 저장소 Secrets `TAURI_SIGNING_PRIVATE_KEY`에 키 파일 내용을 넣어야 릴리스가 서명됨
-- 새 버전 내기: `app/package.json`·`app/src-tauri/Cargo.toml`·`app/src-tauri/tauri.conf.json`의 version을 같이 올리고 `git tag vX.Y.Z; git push --tags`
+- 새 버전 내기: `app/package.json`·`app/src-tauri/Cargo.toml`·`app/src-tauri/tauri.conf.json`의 version을 같이 올리고 `git tag vX.Y.Z; git push --tags`. 펌웨어를 고쳤으면 `firmware/src/config.h`의 `FW_VERSION`도 올림(릴리스 파일 이름이 이 값을 따름)
+- 펌웨어 업데이트: 설정 → 펌웨어 업데이트(`components/FirmwareUpdate.tsx`, `device.rs`의 `firmware_*`). 최신 릴리스 또는 고른 `.bin`을 시리얼 `ota.*`로 보냄. 규격은 docs/protocol.md. **fw 0.3.0 미만 보드는 USB로 한 번 직접 올려야 함**. `.bin` 경로는 `firmware/.pio/build/kivo-deck/firmware.bin`
 
 ## 기본 동작 (번들 없을 때)
 - 키 1~12 → F13~F24, 키 13~15 → Ctrl+F13~F15

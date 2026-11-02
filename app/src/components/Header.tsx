@@ -3,6 +3,7 @@ import logo from "../assets/kivo-logo.png";
 import { OS_LABEL, resolvePreset } from "../model";
 import { useApp } from "../state";
 import { applyToDevice, useSync } from "../sync";
+import { FirmwareButton } from "./FirmwareUpdate";
 import { UpdateButton } from "./UpdateButton";
 import { SettingsDialog } from "./SettingsDialog";
 
@@ -43,6 +44,7 @@ export function Header() {
       >
         {applyText}
       </button>
+      <FirmwareButton />
       <UpdateButton />
       <button className="icon" title="설정" onClick={() => setSettings(true)}>⚙</button>
       {settings && <SettingsDialog onClose={() => setSettings(false)} />}
