@@ -30,13 +30,12 @@ hardware/   PCB 거버·3D 출력·아크릴 파일과 그걸 만든 파이썬 �
 - 처음 업로드나 업로드가 안 될 때: ESP32의 BOOT 버튼을 누른 채 RST를 눌렀다 떼면 다운로드 모드. 업로드 후 COM 포트 번호가 바뀔 수 있음
 - 일반 모드(COM8, SER에 콜론 없음)에서는 esptool 자동 전환이 실패함. 대신 PowerShell `SerialPort`로 포트를 열었다 닫으면 보드가 다운로드 모드(COM7, SER에 콜론 있음)로 넘어간 적이 있음(같은 보드에서 2번). 다운로드 모드에서 빠져나오는 건 esptool `hard_reset`(RTS)으로 안 됐고, 다시 업로드하면 RTC WDT 리셋으로 일반 모드로 돌아옴
 - 납땜 전에는 DevKit의 "USB" 표시 포트(네이티브 USB)로 테스트할 수 있음. 화면·노브 없이도 시리얼 `{"cmd":"hello"}` 응답으로 확인 가능. 이때 페이더 핀이 떠 있어서 `fader` 이벤트가 마구 찍히는 건 정상
-- 페이더를 납땜하면 config.h `FADERS_INSTALLED`를 1로. 0이면 `fader` 이벤트를 보내지 않음(떠 있는 핀의 값이 PC 볼륨을 움직이는 걸 막음)
+- 페이더는 config.h `FADERS_INSTALLED` 1이 기본. 페이더 없는 보드는 0으로 빌드(떠 있는 핀의 값이 PC 볼륨을 움직임). 지금 보드 두 대는 납땜 방향상 `FADER1_INVERT`·`FADER2_INVERT` 모두 1. 릴리스 펌웨어는 모든 보드가 같은 파일을 받으니 이 값들이 전부에 적용됨
 - 터치는 보정 전까지 꺼져 있고, 그동안 화면에는 키 대신 보정 안내가 떠 있음(노브 1을 누르면 보정 시작). 값은 NVS에 있어서 펌웨어를 다시 올려도 유지됨
 
 ### 실물로 확인해야 하는 가정 (추측값)
 - `DISPLAY_ROTATION`(config.h): 조립 후 화면이 뒤집혀 보이면 0~3 중 조정하고 터치 보정 다시
 - 색이 이상하면 display.h의 `invert` / `rgb_order`를 바꿔 볼 것
-- 페이더: 맨 아래가 1000으로 읽히면 `FADERn_INVERT 1`. 와이퍼가 PCB 2번 패드라고 가정
 - 엔코더 방향이 반대면 input 쪽에서 부호만 뒤집기 (PCB 수정 불필요)
 - 터치 보정: 두 노브를 누른 채 USB를 꽂거나 `{"cmd":"calibrate"}`. 값은 NVS(Preferences "kivo"/"tcal")에 저장
 

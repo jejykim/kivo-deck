@@ -1,6 +1,6 @@
 [package]
 name = "kivo-deck"
-version = "0.3.0"
+version = "0.3.2"
 description = "Kivo Deck PC app"
 authors = ["Kivo Lab"]
 edition = "2024"

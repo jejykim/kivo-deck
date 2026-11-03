@@ -6,9 +6,9 @@ Kivo Lab에서 직접 만든 DIY 스트림덱이에요. 4인치 터치 화면 �
 
 | 파일 | 링크 |
 |---|---|
-| Windows 설치 파일 (.exe) | [Kivo.Deck_0.3.0_x64-setup.exe](https://github.com/jejykim/kivo-deck/releases/download/v0.3.0/Kivo.Deck_0.3.0_x64-setup.exe) |
-| Mac 설치 파일 (.dmg, Intel·Apple 칩 공용) | [Kivo.Deck_0.3.0_universal.dmg](https://github.com/jejykim/kivo-deck/releases/download/v0.3.0/Kivo.Deck_0.3.0_universal.dmg) |
-| 보드 펌웨어 (.bin) | [kivo-deck-firmware-0.3.0.bin](https://github.com/jejykim/kivo-deck/releases/download/v0.3.0/kivo-deck-firmware-0.3.0.bin) |
+| Windows 설치 파일 (.exe) | [Kivo.Deck_0.3.2_x64-setup.exe](https://github.com/jejykim/kivo-deck/releases/download/v0.3.2/Kivo.Deck_0.3.2_x64-setup.exe) |
+| Mac 설치 파일 (.dmg, Intel·Apple 칩 공용) | [Kivo.Deck_0.3.2_universal.dmg](https://github.com/jejykim/kivo-deck/releases/download/v0.3.2/Kivo.Deck_0.3.2_universal.dmg) |
+| 보드 펌웨어 (.bin) | [kivo-deck-firmware-0.3.2.bin](https://github.com/jejykim/kivo-deck/releases/download/v0.3.2/kivo-deck-firmware-0.3.2.bin) |
 
 다른 버전은 [릴리스 페이지](https://github.com/jejykim/kivo-deck/releases/latest)에서 받을 수 있어요.
 
@@ -49,7 +49,7 @@ Kivo Lab에서 직접 만든 DIY 스트림덱이에요. 4인치 터치 화면 �
 pio run -t upload
 ```
 
-페이더를 납땜했다면 올리기 전에 `firmware/src/config.h`의 `FADERS_INSTALLED`를 `1`로 바꿔 주세요.
+릴리스 펌웨어는 페이더가 달려 있고 위로 올릴수록 값이 커지도록 맞춰져 있어요. 페이더가 없는 보드는 `firmware/src/config.h`의 `FADERS_INSTALLED`를 `0`으로, 방향이 반대인 보드는 `FADER1_INVERT`·`FADER2_INVERT`를 바꿔 직접 빌드해 주세요.
 
 ## 하드웨어
 

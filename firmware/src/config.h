@@ -1,5 +1,5 @@
 #pragma once
-#define FW_VERSION "0.3.0"
+#define FW_VERSION "0.3.2"
 
 // Screen: 480 x 320 landscape, 5 x 3 keys. If the picture is upside down or mirrored after
 // assembly, change DISPLAY_ROTATION (0-3) and redo the touch calibration.
@@ -12,12 +12,12 @@
 #define ENC_STEPS_PER_DETENT 4
 // Set to 1 once the faders are soldered. Unconnected ADC pins float, and the random values would
 // drive whatever the PC app has on the fader (system volume by default).
-#define FADERS_INSTALLED 0
+#define FADERS_INSTALLED 1
 // Fader: report when the filtered value moves more than this (0-1000 scale)
 #define FADER_DEADBAND 4
 // Set to 1 if a fader reads 1000 at the bottom (it was soldered rotated 180 deg)
-#define FADER1_INVERT 0
-#define FADER2_INVERT 0
+#define FADER1_INVERT 1
+#define FADER2_INVERT 1
 
 // Key gestures (ms)
 #define LONG_PRESS_MS 500
