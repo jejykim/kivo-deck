@@ -8,6 +8,9 @@
 // defined in main.cpp
 void calibrateTouch();
 void sendState();
+void touchTuningJson(char *b, size_t n);
+void setTouchTuning(JsonObjectConst t);
+void watchTouch(bool on);
 
 // The app reads this from firmware.bin: it refuses files without it and shows the version.
 // hello uses the same string, so the linker keeps it.
@@ -50,10 +53,11 @@ void act(const char *src, int id, int page, const char *kind, int n) {
 }
 
 static void hello() {
-  char b[256];
+  char b[400], touch[120];
+  touchTuningJson(touch, sizeof touch);
   snprintf(b, sizeof b,
-           "{\"ev\":\"hello\",\"fw\":\"%s\",\"device\":\"%s\",\"keys\":%d,\"knobs\":2,\"faders\":2,\"bundle\":\"%s\",\"page\":%d,\"ota\":1}",
-           fwVersion, devId, KEY_COUNT, deck::bundleHash().c_str(), deck::page());
+           "{\"ev\":\"hello\",\"fw\":\"%s\",\"device\":\"%s\",\"keys\":%d,\"knobs\":2,\"faders\":2,\"bundle\":\"%s\",\"page\":%d,\"ota\":1,\"touch\":%s}",
+           fwVersion, devId, KEY_COUNT, deck::bundleHash().c_str(), deck::page(), touch);
   send(b);
   if (otaUnconfirmed) { esp_ota_mark_app_valid_cancel_rollback(); otaUnconfirmed = false; }
 }
@@ -87,6 +91,8 @@ static void handle(JsonDocument &d) {
   else if (!strcmp(cmd, "ping")) send("{\"ev\":\"pong\"}");
   else if (!strcmp(cmd, "state")) sendState();
   else if (!strcmp(cmd, "calibrate")) calibrateTouch();
+  else if (!strcmp(cmd, "touch.set")) setTouchTuning(d.as<JsonObjectConst>());
+  else if (!strcmp(cmd, "touch.watch")) watchTouch(d["on"] | 0);
   else if (!strcmp(cmd, "page")) deck::gotoPage(d["n"] | 0, true);
   else if (!strcmp(cmd, "tile")) {
     size_t n = 0;

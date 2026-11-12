@@ -23,6 +23,21 @@ static Fader fader[2];
 static int pressedKey = -1;
 static bool swallowKey = false;          // the touch that woke the screen does nothing else
 static bool touchReady = false;
+
+// Touch feel, tuned per board from the app and kept in NVS. A resistive panel reports jumpy points
+// while the finger lifts, so by default a press stays on the key it started on.
+struct TouchTuning {
+  uint16_t pressMs = 30;     // the point must stay on one key this long before it counts
+  uint16_t releaseMs = 60;   // no touch for this long before the key is released
+  uint16_t minZ = 0;         // lighter touches are ignored (pressure, roughly 0..60)
+  uint16_t edge = 6;         // a press cannot start this close (px) to a key border
+  uint16_t slide = 0;        // 1 = moving onto another key while held switches to it
+};
+static TouchTuning tune;
+static int candKey = -1;                 // key the touch is on, not yet pressed
+static uint32_t candSince = 0, lastTouchAt = 0;
+static uint32_t watchUntil = 0, lastWatchAt = 0;
+static bool watchTouching = false;
 static bool turnedWhilePressed[2] = { false, false };
 static bool swallowKnob[2] = { false, false };
 static char deviceId[13];
@@ -30,6 +45,56 @@ static char deviceId[13];
 static int keyAt(int tx, int ty) {
   if (tx < 0 || ty < 0 || tx >= lcd.width() || ty >= lcd.height()) return -1;
   return (ty * KEY_ROWS / lcd.height()) * KEY_COLS + (tx * KEY_COLS / lcd.width());
+}
+
+// -1 when the point lies within `edge` px of a key border
+static int keyInside(int tx, int ty, int edge) {
+  int k = keyAt(tx, ty);
+  if (k < 0 || edge <= 0) return k;
+  int w = lcd.width(), h = lcd.height();
+  int cx = tx * KEY_COLS % w, cy = ty * KEY_ROWS % h;   // position inside the key, scaled by cols/rows
+  if (cx < edge * KEY_COLS || w - cx <= edge * KEY_COLS) return -1;
+  if (cy < edge * KEY_ROWS || h - cy <= edge * KEY_ROWS) return -1;
+  return k;
+}
+
+static uint16_t clampU(JsonVariantConst v, uint16_t cur, uint16_t hi) {
+  if (!v.is<int>()) return cur;
+  int n = v.as<int>();
+  return n < 0 ? 0 : n > hi ? hi : n;
+}
+
+void touchTuningJson(char *b, size_t n) {
+  snprintf(b, n, "{\"press\":%u,\"release\":%u,\"minZ\":%u,\"edge\":%u,\"slide\":%u}",
+           tune.pressMs, tune.releaseMs, tune.minZ, tune.edge, tune.slide);
+}
+
+void setTouchTuning(JsonObjectConst t) {
+  if (t["default"] | 0) tune = TouchTuning();
+  tune.pressMs = clampU(t["press"], tune.pressMs, 300);
+  tune.releaseMs = clampU(t["release"], tune.releaseMs, 500);
+  tune.minZ = clampU(t["minZ"], tune.minZ, 100);
+  tune.edge = clampU(t["edge"], tune.edge, 30);
+  tune.slide = clampU(t["slide"], tune.slide, 1);
+  prefs.putBytes("tune", &tune, sizeof tune);
+  char b[160], j[120];
+  touchTuningJson(j, sizeof j);
+  snprintf(b, sizeof b, "{\"ev\":\"touchCfg\",\"touch\":%s}", j);
+  pc::send(b);
+}
+
+// While on, every touch sample is reported (at most 20 per second) so the app can show the pressure
+void watchTouch(bool on) { watchUntil = on ? millis() + 120000 : 0; }
+
+static void reportTouch(bool touching, int x, int y, int z, int k) {
+  uint32_t now = millis();
+  if (!watchUntil || (int32_t)(now - watchUntil) > 0) { watchUntil = 0; return; }
+  if (touching ? now - lastWatchAt < 50 : !watchTouching) return;
+  lastWatchAt = now;
+  watchTouching = touching;
+  char b[96];
+  snprintf(b, sizeof b, "{\"ev\":\"touchRaw\",\"x\":%d,\"y\":%d,\"z\":%d,\"key\":%d}", x, y, touching ? z : 0, k);
+  pc::send(b);
 }
 
 void calibrateTouch() {
@@ -83,6 +148,7 @@ void setup() {
   deck::begin();
 
   prefs.begin("kivo", false);
+  if (prefs.getBytes("tune", &tune, sizeof tune) != sizeof tune) tune = TouchTuning();
   uint16_t cal[8];
   bool both = digitalRead(PIN_ENC1_SW) == LOW && digitalRead(PIN_ENC2_SW) == LOW;
   if (!both && prefs.getBytes("tcal", cal, sizeof cal) == sizeof cal) {
@@ -100,19 +166,31 @@ void setup() {
 void loop() {
   if (pc::updating()) { pc::poll(); return; }
 
-  // touch -> key press / release (sliding to another key = release + press)
-  int32_t tx, ty;
-  int k = (touchReady && lcd.getTouch(&tx, &ty)) ? keyAt(tx, ty) : -1;
-  if (k != pressedKey) {
+  // touch -> key press / release. A key goes down once the point stayed on it for pressMs, and up
+  // after releaseMs without any touch; while held it keeps its key unless slide is on.
+  uint32_t now = millis();
+  lgfx::touch_point_t tp;
+  bool touching = touchReady && lcd.getTouch(&tp) && tp.size >= tune.minZ;
+  int k = touching ? keyInside(tp.x, tp.y, pressedKey >= 0 ? 0 : tune.edge) : -1;
+  if (touchReady) reportTouch(touching, tp.x, tp.y, tp.size, touching ? keyAt(tp.x, tp.y) : -1);
+  if (touching) lastTouchAt = now;
+
+  int next = pressedKey;
+  if (pressedKey >= 0 && !touching && now - lastTouchAt >= tune.releaseMs) next = -1;
+  if (k != candKey) { candKey = k; candSince = now; }
+  bool settled = k >= 0 && now - candSince >= tune.pressMs;
+  if (settled && (pressedKey < 0 || (tune.slide && k != pressedKey))) next = k;
+
+  if (next != pressedKey) {
     if (pressedKey >= 0) {
       if (!swallowKey) { deck::keyUp(pressedKey); keyEvent(pressedKey, false); }
       swallowKey = false;
     }
-    if (k >= 0) {
+    if (next >= 0) {
       if (deck::wakeIfSleeping()) swallowKey = true;
-      else { deck::keyDown(k); keyEvent(k, true); }
+      else { deck::keyDown(next); keyEvent(next, true); }
     }
-    pressedKey = k;
+    pressedKey = next;
   }
 
   for (int i = 0; i < 2; i++) {

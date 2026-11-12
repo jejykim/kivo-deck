@@ -8,7 +8,10 @@ export function installDevMock() {
   mockIPC((cmd, args: any) => {
     switch (cmd) {
       case "host_os": return "windows";
-      case "device_status": return { connected: false, port: null, hello: null };
+      case "device_status": return {
+        connected: true, port: "COM6",
+        hello: { fw: "0.3.3", ota: 1, bundle: "", touch: { press: 30, release: 60, minZ: 0, edge: 6, slide: 0 } },
+      };
       case "load_store": return store;
       case "save_store": store = args.json; return null;
       case "save_media": files.set(args.name, args.b64); return null;
@@ -35,7 +38,7 @@ export function installDevMock() {
       case "plugin:app|version": return "0.1.0-dev";
       case "plugin:dialog|ask": case "plugin:dialog|confirm": return true;
       case "firmware_latest": return { version: "0.4.0", url: "https://example.invalid/kivo-deck-firmware-0.4.0.bin", size: 536192 };
-      case "send_command": throw "기기가 연결되어 있지 않아요";
+      case "send_command": return null;
       default: return null;
     }
   }, { shouldMockEvents: true });

@@ -241,3 +241,4 @@ header.top h1 { font-size: 16px; margin: 0; color: var(--accent-2); }
 .steps { padding: 0; margin: 8px 0; list-style: none; }
 .step { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; margin: 4px 0; }
 .step-no { width: 20px; color: var(--muted); }
+.touch-live { display: flex; flex-direction: column; gap: 4px; padding: 8px; margin: 8px 0; border-radius: 6px; background: var(--panel-2); }

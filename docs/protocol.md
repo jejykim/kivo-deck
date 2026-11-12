@@ -7,7 +7,9 @@ USB CDC 시리얼(115200, 실제 속도는 무관), **한 줄에 JSON 하나**, 
 ## 기기 → 앱 (이벤트)
 | ev | 필드 | 의미 |
 |---|---|---|
-| `hello` | `fw`, `device`(MAC 12자리), `keys`, `knobs`, `faders`, `bundle`(저장된 번들 해시, 없으면 ""), `page`, `ota`(1 = 펌웨어 업데이트 가능, fw 0.3.0~) | 연결 확인 응답 |
+| `hello` | `fw`, `device`(MAC 12자리), `keys`, `knobs`, `faders`, `bundle`(저장된 번들 해시, 없으면 ""), `page`, `ota`(1 = 펌웨어 업데이트 가능, fw 0.3.0~), `touch`(터치 조절 값, fw 0.3.3~) | 연결 확인 응답 |
+| `touchCfg` | `touch` | `touch.set` 뒤 저장된 터치 조절 값 |
+| `touchRaw` | `x`, `y`(화면 px), `z`(압력, 대략 0~60, 뗐으면 0), `key`(그 점의 키, 없으면 -1) | `touch.watch` 중 터치 값 (초당 최대 20번, 뗄 때 한 번) |
 | `key` | `id`, `down` 1/0, `page` | 화면 키 누름/뗌 (표시용) |
 | `knob` | `id`, `delta` (+ 시계방향, 칸 수) | 노브 회전 (표시용) |
 | `knobPress` | `id`, `down` 1/0 | 노브 누름/뗌 (표시용) |
@@ -27,6 +29,8 @@ USB CDC 시리얼(115200, 실제 속도는 무관), **한 줄에 JSON 하나**, 
 | `ping` | | → `pong` |
 | `state` | | → `state` |
 | `calibrate` | | 터치 보정 화면 시작 |
+| `touch.set` | `press`, `release`(ms), `minZ`, `edge`(px), `slide`(0/1), `default`(1 = 기본값으로) 중 아무거나 | 터치 조절 값을 바꾸고 보드에 저장 → `touchCfg` |
+| `touch.watch` | `on` 1/0 | 터치 값 보내기(`touchRaw`) 켜기/끄기. 켠 뒤 2분이 지나면 저절로 꺼짐 |
 | `page` | `n` | 페이지 이동 (앱의 프로그램별 자동 전환) → `page` |
 | `tile` | `page`, `key`, `d`(base64 JPEG, 96×107) | 실시간 키(시계·CPU 등) 한 칸 다시 그리기. 그 페이지가 보일 때만 그림 |
 | `bundle.begin` | `hash`, `size`(전체 바이트) | 번들 받기 시작: `/b/` 비움 → `ok` (공간 부족이면 `error`) |
@@ -88,7 +92,17 @@ PC 앱이 "보드에 적용" 때 이 PC의 OS용 프리셋으로 만들어 보�
 - 키 1~12 → F13~F24, 키 13~15 → Ctrl+F13~F15
 - 노브 1 → 볼륨 ±, 누르면 음소거
 
+## 터치 조절 (`touch`)
+| 값 | 기본 | 범위 | 뜻 |
+|---|---|---|---|
+| `press` | 30 | 0~300 ms | 한 키 위에 이만큼 머물러야 눌림 |
+| `release` | 60 | 0~500 ms | 터치가 이만큼 없어야 뗌 (손 뗄 때 튀는 점을 무시) |
+| `minZ` | 0 | 0~100 | 이보다 약한 터치는 무시 |
+| `edge` | 6 | 0~30 px | 키 경계에서 이만큼 안쪽부터 누르기 시작 |
+| `slide` | 0 | 0/1 | 1이면 누른 채 다른 키로 옮겨 가면 그 키로 바뀜. 0이면 처음 누른 키 고정 |
+
 ## 버전 기록
+- v1 (fw 0.3.3): `touch.set`·`touch.watch`, `hello`의 `touch`, `touchCfg`·`touchRaw`. 누른 키 고정이 기본
 - v1 (fw 0.3.0): `ota.*` 명령과 `hello`의 `ota` 추가
 - v1 (fw 0.2.0): 번들·페이지·`act`·`tile`·`page`, `hello`에 `bundle`/`page`, `key`에 `page`
 - v0 (fw 0.1.0): 입력 이벤트와 hello/ping/state/calibrate

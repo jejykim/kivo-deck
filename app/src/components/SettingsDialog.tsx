@@ -5,6 +5,7 @@ import { useApp } from "../state";
 import { Modal } from "./Modal";
 import { checkForUpdate, UpdateDialog, useUpdate } from "./UpdateButton";
 import { FirmwareDialog } from "./FirmwareUpdate";
+import { TouchDialog } from "./TouchDialog";
 
 // Makes the OS login item match the setting. Skipped in dev builds so the dev exe is never registered.
 export async function syncAutostart() {
@@ -26,6 +27,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [checking, setChecking] = useState(false);
   const [showUpdate, setShowUpdate] = useState(false);
   const [showFirmware, setShowFirmware] = useState(false);
+  const [showTouch, setShowTouch] = useState(false);
   const fw = useApp((s) => s.device.hello?.fw);
   const upd = useUpdate();
 
@@ -62,9 +64,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       <div className="row">
         <span>펌웨어 {fw ?? "(보드 없음)"}</span>
         <div className="spacer" />
+        <button onClick={() => setShowTouch(true)}>터치 조절</button>
         <button onClick={() => setShowFirmware(true)}>펌웨어 업데이트</button>
       </div>
       {showFirmware && <FirmwareDialog onClose={() => setShowFirmware(false)} />}
+      {showTouch && <TouchDialog onClose={() => setShowTouch(false)} />}
 
       <h4>OBS Studio</h4>
       <div className="row">

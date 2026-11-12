@@ -28,9 +28,11 @@ function onDeviceEvent(e: DeviceEvent) {
     s.set({ faderValues });
   } else if (e.ev === "page") {
     s.set({ devicePage: e.n ?? 0 });
+  } else if (e.ev === "touchCfg") {
+    s.set({ device: { ...s.device, hello: { ...s.device.hello, touch: e.touch } } });
   }
-  // fader and knob turns are frequent; keep the log readable
-  if (e.ev !== "fader") s.addLog(JSON.stringify(e), e.ev === "error" ? "err" : "in");
+  // fader moves and touch samples are frequent; keep the log readable
+  if (e.ev !== "fader" && e.ev !== "touchRaw") s.addLog(JSON.stringify(e), e.ev === "error" ? "err" : "in");
 }
 
 function onDeviceStatus(info: DeviceInfo) {
