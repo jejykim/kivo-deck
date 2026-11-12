@@ -1,5 +1,5 @@
 #pragma once
-#define FW_VERSION "0.3.3"
+#define FW_VERSION "0.3.4"
 
 // Screen: 480 x 320 landscape, 5 x 3 keys. If the picture is upside down or mirrored after
 // assembly, change DISPLAY_ROTATION (0-3) and redo the touch calibration.

@@ -6,6 +6,7 @@ import { Modal } from "./Modal";
 import { checkForUpdate, UpdateDialog, useUpdate } from "./UpdateButton";
 import { FirmwareDialog } from "./FirmwareUpdate";
 import { TouchDialog } from "./TouchDialog";
+import { KeyMapDialog } from "./KeyMapDialog";
 
 // Makes the OS login item match the setting. Skipped in dev builds so the dev exe is never registered.
 export async function syncAutostart() {
@@ -28,6 +29,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [showUpdate, setShowUpdate] = useState(false);
   const [showFirmware, setShowFirmware] = useState(false);
   const [showTouch, setShowTouch] = useState(false);
+  const [showKeyMap, setShowKeyMap] = useState(false);
   const fw = useApp((s) => s.device.hello?.fw);
   const upd = useUpdate();
 
@@ -68,7 +70,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         <button onClick={() => setShowFirmware(true)}>펌웨어 업데이트</button>
       </div>
       {showFirmware && <FirmwareDialog onClose={() => setShowFirmware(false)} />}
-      {showTouch && <TouchDialog onClose={() => setShowTouch(false)} />}
+      {showTouch && <TouchDialog onClose={() => setShowTouch(false)} onKeyMap={() => { setShowTouch(false); setShowKeyMap(true); }} />}
+      {showKeyMap && <KeyMapDialog onClose={() => setShowKeyMap(false)} />}
 
       <h4>OBS Studio</h4>
       <div className="row">

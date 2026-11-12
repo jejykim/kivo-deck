@@ -18,7 +18,7 @@ const SLIDERS: { key: keyof Tuning; label: string; max: number; unit: string; he
 
 const send = (cmd: Record<string, unknown>) => invoke("send_command", { line: JSON.stringify(cmd) });
 
-export function TouchDialog({ onClose }: { onClose: () => void }) {
+export function TouchDialog({ onClose, onKeyMap }: { onClose: () => void; onKeyMap: () => void }) {
   const device = useApp((s) => s.device);
   const saved = device.hello?.touch as Tuning | undefined;
   const [t, setT] = useState<Tuning | null>(saved ?? null);
@@ -81,9 +81,10 @@ export function TouchDialog({ onClose }: { onClose: () => void }) {
       <div className="row">
         <button onClick={() => send({ cmd: "touch.set", default: 1 }).catch((e) => setError(String(e)))}>기본값으로</button>
         <div className="spacer" />
+        <button onClick={onKeyMap}>키별 위치 보정</button>
         <button onClick={() => send({ cmd: "calibrate" }).catch((e) => setError(String(e)))}>터치 보정 다시 하기</button>
       </div>
-      <p className="muted small">터치 위치 자체가 어긋나 있으면 조절보다 보정을 다시 하는 게 먼저예요. 보드 화면의 화살표 끝을 정확히 눌러 주세요.</p>
+      <p className="muted small">터치 위치 자체가 어긋나 있으면 조절보다 보정이 먼저예요. 화면 전체가 밀려 있으면 "터치 보정 다시 하기", 가운데 키처럼 일부 키만 어긋나면 "키별 위치 보정"을 쓰세요.</p>
     </>
   );
 

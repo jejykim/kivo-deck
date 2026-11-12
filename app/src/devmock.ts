@@ -10,7 +10,7 @@ export function installDevMock() {
       case "host_os": return "windows";
       case "device_status": return {
         connected: true, port: "COM6",
-        hello: { fw: "0.3.3", ota: 1, bundle: "", touch: { press: 30, release: 60, minZ: 0, edge: 6, slide: 0 } },
+        hello: { fw: "0.3.4", ota: 1, kmap: 1, bundle: "", touch: { press: 30, release: 60, minZ: 0, edge: 6, slide: 0 } },
       };
       case "load_store": return store;
       case "save_store": store = args.json; return null;

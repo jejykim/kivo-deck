@@ -38,24 +38,72 @@ static int candKey = -1;                 // key the touch is on, not yet pressed
 static uint32_t candSince = 0, lastTouchAt = 0;
 static uint32_t watchUntil = 0, lastWatchAt = 0;
 static bool watchTouching = false;
+static bool watchMute = false;          // measuring from the app: touches run no key actions
+
+// Where each key really reads on this panel (screen px). A touch belongs to the nearest center, so
+// grid centers give the plain 5 x 3 grid and measured centers fix a panel that reads off in places.
+static int16_t keyCx[KEY_COUNT], keyCy[KEY_COUNT];
+
+static void gridCenters() {
+  for (int k = 0; k < KEY_COUNT; k++) {
+    keyCx[k] = (k % KEY_COLS) * 480 / KEY_COLS + 480 / KEY_COLS / 2;
+    keyCy[k] = (int)lroundf((k / KEY_COLS + 0.5f) * 320.0f / KEY_ROWS);
+  }
+}
 static bool turnedWhilePressed[2] = { false, false };
 static bool swallowKnob[2] = { false, false };
 static char deviceId[13];
 
-static int keyAt(int tx, int ty) {
+// Nearest key center; -1 off screen, or when the point lies within `edge` px of the border between
+// the two nearest keys (the border is the line halfway between their centers)
+static int keyInside(int tx, int ty, int edge) {
   if (tx < 0 || ty < 0 || tx >= lcd.width() || ty >= lcd.height()) return -1;
-  return (ty * KEY_ROWS / lcd.height()) * KEY_COLS + (tx * KEY_COLS / lcd.width());
+  int best = -1, second = -1;
+  int32_t d1 = INT32_MAX, d2 = INT32_MAX;
+  for (int k = 0; k < KEY_COUNT; k++) {
+    int32_t dx = tx - keyCx[k], dy = ty - keyCy[k], d = dx * dx + dy * dy;
+    if (d < d1) { d2 = d1; second = best; d1 = d; best = k; }
+    else if (d < d2) { d2 = d; second = k; }
+  }
+  if (edge <= 0 || second < 0) return best;
+  float gap = hypotf(keyCx[best] - keyCx[second], keyCy[best] - keyCy[second]);
+  float toBorder = gap > 0 ? (d2 - d1) / (2 * gap) : 0;
+  return toBorder < edge ? -1 : best;
 }
 
-// -1 when the point lies within `edge` px of a key border
-static int keyInside(int tx, int ty, int edge) {
-  int k = keyAt(tx, ty);
-  if (k < 0 || edge <= 0) return k;
-  int w = lcd.width(), h = lcd.height();
-  int cx = tx * KEY_COLS % w, cy = ty * KEY_ROWS % h;   // position inside the key, scaled by cols/rows
-  if (cx < edge * KEY_COLS || w - cx <= edge * KEY_COLS) return -1;
-  if (cy < edge * KEY_ROWS || h - cy <= edge * KEY_ROWS) return -1;
-  return k;
+static int keyAt(int tx, int ty) { return keyInside(tx, ty, 0); }
+
+void touchMapJson(char *b, size_t n) {
+  int o = snprintf(b, n, "{\"ev\":\"touchMap\",\"cx\":[");
+  for (int k = 0; k < KEY_COUNT; k++) o += snprintf(b + o, n - o, k ? ",%d" : "%d", keyCx[k]);
+  o += snprintf(b + o, n - o, "],\"cy\":[");
+  for (int k = 0; k < KEY_COUNT; k++) o += snprintf(b + o, n - o, k ? ",%d" : "%d", keyCy[k]);
+  snprintf(b + o, n - o, "]}");
+}
+
+void sendTouchMap() {
+  char b[320];
+  touchMapJson(b, sizeof b);
+  pc::send(b);
+}
+
+// {"cx":[15],"cy":[15]} or {"default":1}; replies with the stored map
+void setTouchMap(JsonObjectConst m) {
+  JsonArrayConst cx = m["cx"], cy = m["cy"];
+  if (m["default"] | 0) {
+    gridCenters();
+    prefs.remove("kmap");
+  } else if (cx.size() == KEY_COUNT && cy.size() == KEY_COUNT) {
+    for (int k = 0; k < KEY_COUNT; k++) {
+      keyCx[k] = constrain(cx[k].as<int>(), 0, 479);
+      keyCy[k] = constrain(cy[k].as<int>(), 0, 319);
+    }
+    int16_t both[KEY_COUNT * 2];
+    memcpy(both, keyCx, sizeof keyCx);
+    memcpy(both + KEY_COUNT, keyCy, sizeof keyCy);
+    prefs.putBytes("kmap", both, sizeof both);
+  }
+  sendTouchMap();
 }
 
 static uint16_t clampU(JsonVariantConst v, uint16_t cur, uint16_t hi) {
@@ -83,12 +131,16 @@ void setTouchTuning(JsonObjectConst t) {
   pc::send(b);
 }
 
-// While on, every touch sample is reported (at most 20 per second) so the app can show the pressure
-void watchTouch(bool on) { watchUntil = on ? millis() + 120000 : 0; }
+// While on, every touch sample is reported (at most 20 per second) so the app can show the pressure.
+// mute: the app is measuring keys, so touches run no actions until watching stops.
+void watchTouch(bool on, bool mute) {
+  watchUntil = on ? millis() + 120000 : 0;
+  watchMute = on && mute;
+}
 
 static void reportTouch(bool touching, int x, int y, int z, int k) {
   uint32_t now = millis();
-  if (!watchUntil || (int32_t)(now - watchUntil) > 0) { watchUntil = 0; return; }
+  if (!watchUntil || (int32_t)(now - watchUntil) > 0) { watchUntil = 0; watchMute = false; return; }
   if (touching ? now - lastWatchAt < 50 : !watchTouching) return;
   lastWatchAt = now;
   watchTouching = touching;
@@ -149,6 +201,13 @@ void setup() {
 
   prefs.begin("kivo", false);
   if (prefs.getBytes("tune", &tune, sizeof tune) != sizeof tune) tune = TouchTuning();
+  int16_t kmap[KEY_COUNT * 2];
+  if (prefs.getBytes("kmap", kmap, sizeof kmap) == sizeof kmap) {
+    memcpy(keyCx, kmap, sizeof keyCx);
+    memcpy(keyCy, kmap + KEY_COUNT, sizeof keyCy);
+  } else {
+    gridCenters();
+  }
   uint16_t cal[8];
   bool both = digitalRead(PIN_ENC1_SW) == LOW && digitalRead(PIN_ENC2_SW) == LOW;
   if (!both && prefs.getBytes("tcal", cal, sizeof cal) == sizeof cal) {
@@ -181,14 +240,23 @@ void loop() {
   bool settled = k >= 0 && now - candSince >= tune.pressMs;
   if (settled && (pressedKey < 0 || (tune.slide && k != pressedKey))) next = k;
 
+  // while the app measures, presses are only reported (decided per press, so a held key ends cleanly)
+  static bool pressMuted = false;
   if (next != pressedKey) {
     if (pressedKey >= 0) {
-      if (!swallowKey) { deck::keyUp(pressedKey); keyEvent(pressedKey, false); }
+      if (!swallowKey) {
+        if (!pressMuted) deck::keyUp(pressedKey);
+        keyEvent(pressedKey, false);
+      }
       swallowKey = false;
     }
     if (next >= 0) {
-      if (deck::wakeIfSleeping()) swallowKey = true;
-      else { deck::keyDown(next); keyEvent(next, true); }
+      pressMuted = watchMute;
+      if (!pressMuted && deck::wakeIfSleeping()) swallowKey = true;
+      else {
+        if (!pressMuted) deck::keyDown(next);
+        keyEvent(next, true);
+      }
     }
     pressedKey = next;
   }

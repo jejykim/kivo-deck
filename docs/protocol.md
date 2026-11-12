@@ -7,8 +7,9 @@ USB CDC 시리얼(115200, 실제 속도는 무관), **한 줄에 JSON 하나**, 
 ## 기기 → 앱 (이벤트)
 | ev | 필드 | 의미 |
 |---|---|---|
-| `hello` | `fw`, `device`(MAC 12자리), `keys`, `knobs`, `faders`, `bundle`(저장된 번들 해시, 없으면 ""), `page`, `ota`(1 = 펌웨어 업데이트 가능, fw 0.3.0~), `touch`(터치 조절 값, fw 0.3.3~) | 연결 확인 응답 |
+| `hello` | `fw`, `device`(MAC 12자리), `keys`, `knobs`, `faders`, `bundle`(저장된 번들 해시, 없으면 ""), `page`, `ota`(1 = 펌웨어 업데이트 가능, fw 0.3.0~), `touch`(터치 조절 값, fw 0.3.3~), `kmap`(1 = 키별 위치 보정 가능, fw 0.3.4~) | 연결 확인 응답 |
 | `touchCfg` | `touch` | `touch.set` 뒤 저장된 터치 조절 값 |
+| `touchMap` | `cx[15]`, `cy[15]`(화면 px) | 키별 중심 위치. `touch.map` 응답 |
 | `touchRaw` | `x`, `y`(화면 px), `z`(압력, 대략 0~60, 뗐으면 0), `key`(그 점의 키, 없으면 -1) | `touch.watch` 중 터치 값 (초당 최대 20번, 뗄 때 한 번) |
 | `key` | `id`, `down` 1/0, `page` | 화면 키 누름/뗌 (표시용) |
 | `knob` | `id`, `delta` (+ 시계방향, 칸 수) | 노브 회전 (표시용) |
@@ -30,7 +31,8 @@ USB CDC 시리얼(115200, 실제 속도는 무관), **한 줄에 JSON 하나**, 
 | `state` | | → `state` |
 | `calibrate` | | 터치 보정 화면 시작 |
 | `touch.set` | `press`, `release`(ms), `minZ`, `edge`(px), `slide`(0/1), `default`(1 = 기본값으로) 중 아무거나 | 터치 조절 값을 바꾸고 보드에 저장 → `touchCfg` |
-| `touch.watch` | `on` 1/0 | 터치 값 보내기(`touchRaw`) 켜기/끄기. 켠 뒤 2분이 지나면 저절로 꺼짐 |
+| `touch.watch` | `on` 1/0, `mute` 1/0 | 터치 값 보내기(`touchRaw`) 켜기/끄기. 켠 뒤 2분이 지나면 저절로 꺼짐. `mute` 1이면 그동안 키를 눌러도 동작은 실행하지 않고 `key` 이벤트만 보냄(앱이 키 위치를 잴 때) |
+| `touch.map` | 없음 / `cx[15]`, `cy[15]` / `default` 1 | 키별 중심 위치 읽기 / 바꾸고 저장 / 격자로 되돌리기 → `touchMap` |
 | `page` | `n` | 페이지 이동 (앱의 프로그램별 자동 전환) → `page` |
 | `tile` | `page`, `key`, `d`(base64 JPEG, 96×107) | 실시간 키(시계·CPU 등) 한 칸 다시 그리기. 그 페이지가 보일 때만 그림 |
 | `bundle.begin` | `hash`, `size`(전체 바이트) | 번들 받기 시작: `/b/` 비움 → `ok` (공간 부족이면 `error`) |
@@ -101,7 +103,10 @@ PC 앱이 "보드에 적용" 때 이 PC의 OS용 프리셋으로 만들어 보�
 | `edge` | 6 | 0~30 px | 키 경계에서 이만큼 안쪽부터 누르기 시작 |
 | `slide` | 0 | 0/1 | 1이면 누른 채 다른 키로 옮겨 가면 그 키로 바뀜. 0이면 처음 누른 키 고정 |
 
+터치 점은 **가장 가까운 키 중심**의 키로 판단해요. 기본 중심은 5×3 격자의 가운데라 격자와 같고, 패널이 군데군데 어긋나 읽히면 앱의 "키별 위치 보정"으로 키마다 잰 중심을 저장해요(NVS `kmap`). `edge`는 가장 가까운 두 중심 사이 경계선까지의 거리예요.
+
 ## 버전 기록
+- v1 (fw 0.3.4): `touch.map`·`touchMap`, `touch.watch`의 `mute`, `hello`의 `kmap`. 키 판단이 격자 → 가장 가까운 키 중심
 - v1 (fw 0.3.3): `touch.set`·`touch.watch`, `hello`의 `touch`, `touchCfg`·`touchRaw`. 누른 키 고정이 기본
 - v1 (fw 0.3.0): `ota.*` 명령과 `hello`의 `ota` 추가
 - v1 (fw 0.2.0): 번들·페이지·`act`·`tile`·`page`, `hello`에 `bundle`/`page`, `key`에 `page`
