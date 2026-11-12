@@ -6,9 +6,9 @@ Kivo Lab에서 직접 만든 DIY 스트림덱이에요. 4인치 터치 화면 �
 
 | 파일 | 링크 |
 |---|---|
-| Windows 설치 파일 (.exe) | [Kivo.Deck_0.3.2_x64-setup.exe](https://github.com/jejykim/kivo-deck/releases/download/v0.3.2/Kivo.Deck_0.3.2_x64-setup.exe) |
-| Mac 설치 파일 (.dmg, Intel·Apple 칩 공용) | [Kivo.Deck_0.3.2_universal.dmg](https://github.com/jejykim/kivo-deck/releases/download/v0.3.2/Kivo.Deck_0.3.2_universal.dmg) |
-| 보드 펌웨어 (.bin) | [kivo-deck-firmware-0.3.2.bin](https://github.com/jejykim/kivo-deck/releases/download/v0.3.2/kivo-deck-firmware-0.3.2.bin) |
+| Windows 설치 파일 (.exe) | [Kivo.Deck_0.3.3_x64-setup.exe](https://github.com/jejykim/kivo-deck/releases/download/v0.3.3/Kivo.Deck_0.3.3_x64-setup.exe) |
+| Mac 설치 파일 (.dmg, Intel·Apple 칩 공용) | [Kivo.Deck_0.3.3_universal.dmg](https://github.com/jejykim/kivo-deck/releases/download/v0.3.3/Kivo.Deck_0.3.3_universal.dmg) |
+| 보드 펌웨어 (.bin) | [kivo-deck-firmware-0.3.3.bin](https://github.com/jejykim/kivo-deck/releases/download/v0.3.3/kivo-deck-firmware-0.3.3.bin) |
 
 다른 버전은 [릴리스 페이지](https://github.com/jejykim/kivo-deck/releases/latest)에서 받을 수 있어요.
 
@@ -26,6 +26,7 @@ Kivo Lab에서 직접 만든 DIY 스트림덱이에요. 4인치 터치 화면 �
 2. 처음 쓰는 보드라면 화면 안내대로 **노브 1을 누르고**, 화살표 끝을 차례로 눌러 터치를 보정해요.
 3. 오른쪽 기능 목록에서 원하는 기능을 끌어다 키·노브·페이더에 놓아요.
 4. **보드에 적용**을 누르면 설정이 보드에 저장돼요. 보드가 직접 실행하는 기능은 앱을 꺼도 동작해요.
+5. 키가 잘 안 눌리거나 옆 키가 같이 눌리면 **설정 → 터치 조절**에서 압력을 보며 맞춰요. 값은 보드마다 따로 저장돼요.
 
 ## 할 수 있는 일
 
